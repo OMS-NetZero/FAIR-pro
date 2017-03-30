@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import root
-from scipy.ndimage.filters import gaussian_filter1d
 
 def iirf_interp_funct(alp_b,a,tau,iirf,x):
 
