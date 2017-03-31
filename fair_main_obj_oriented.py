@@ -27,14 +27,14 @@ class FAIR(object):
 
 		# as we've defined TCR as a property, we store the actual variable value as a 'hidden' value by using an underscore first (to avoid getting in a loop with our getter function)
 		self._TCR = TCR
-		self.ECS = ECS
-		self.d = d
-		self.a = a
+		self._ECS = ECS
+		self._d = d
+		self._a = a
 		self.tau = tau
 		self.r0 = r0
 		self.rC = rC
 		self.rT = rT
-		self.F_2x = F_2x
+		self._F_2x = F_2x
 		self.C_0 = C_0
 		self.ppm_gtc = ppm_gtc
 		self.iirf_max = iirf_max
@@ -42,30 +42,78 @@ class FAIR(object):
 		#Get the length of the emissions array
 		self.n = len(emissions)
 
-		self.k = 1.0 - (self.d/70.0)*(1.0 - np.exp(-70.0/self.d))
-		print 'Get TCR twice to calculate q when the FAIR object is initialised'
-		self.q = np.transpose((1.0 / self.F_2x) * (1.0/(self.k[0]-self.k[1])) * np.array([self.TCR-self.ECS*self.k[1],self.ECS*self.k[0]-self.TCR]))
+		# calculate k and q
+		
+	# # ------------ PROPERTIES ------------ # #
 
 	@property
 	def TCR(self):
-		# define getter function here
-		# whenever we run an instance of .TCR on a FAIR object, this function is run
-		print 'getting TCR'
 		return self._TCR
 
-	# setter function here
-	# whenever we run an instance of .TCR = val on a FAIR object, this function is run
 	@TCR.setter
 	def TCR(self, val):		
 		if type(val) not in [int,float]:
 			raise ValueError("Non-numeric TCR won't work")
 
-		print 'setting TCR'
 		self._TCR = val
-		print 're-calculating q'
-		#Calculate the q1 and q2 model coefficients from the TCR, ECS and thermal response timescales.
-		self.q = np.transpose((1.0 / self.F_2x) * (1.0/(self.k[0]-self.k[1])) * np.array([self.TCR-self.ECS*self.k[1],self.ECS*self.k[0]-self.TCR]))
+		self.calc_k_q()
+		
+	@property
+	def ECS(self):
+		return self._ECS
 
+	@ECS.setter
+	def ECS(self, val):		
+		if type(val) not in [int,float]:
+			raise ValueError("Non-numeric ECS won't work")
+
+		self._ECS = val
+		self.calc_k_q()
+	
+	@property
+	def F_2x(self):
+		return self._F_2x
+
+	@F_2x.setter
+	def F_2x(self, val):		
+		if type(val) not in [int,float]:
+			raise ValueError("Non-numeric F_2x won't work")
+
+		self._F_2x = val
+		self.calc_k_q()
+
+	@property
+	def d(self):
+		return self._d
+
+	@d.setter
+	def d(self, val):		
+		if type(val) not in [list, np.ndarray] or len(val) != 4:
+			raise ValueError("d must be a 4D array or list")
+
+		self._d = val
+		self.calc_k_q()
+
+	@property
+	def a(self):
+		return self._a
+
+	@a.setter
+	def a(self, val):		
+		if type(val) not in [list, np.ndarray] or len(val) != 4:
+			raise ValueError("a must be a 4D array or list")
+
+		if np.sum(val) != 1:
+			raise ValueError("sum of a coefficients must be 1 to conserve carbon")
+
+		self._a = val
+		self.calc_k_q()
+
+	# # ------------ FUNCTIONS ------------ # #		
+
+	def calc_k_q(self):
+		self.k = 1.0 - (self.d/70.0)*(1.0 - np.exp(-70.0/self.d))
+		self.q = np.transpose((1.0 / self.F_2x) * (1.0/(self.k[0]-self.k[1])) * np.array([self.TCR-self.ECS*self.k[1],self.ECS*self.k[0]-self.TCR]))
 
 	def iirf_interp_funct(self,alp_b,iirf_targ):
 
@@ -189,8 +237,3 @@ class FAIR(object):
 		print 'ppm --> gtc: ', self.ppm_gtc
 
 		print 'Max iirf: ', self.iirf_max
-
-	def printOut(self):
-		for i,temp in enumerate(self.T):
-			print temp
-			print self.C[i]
