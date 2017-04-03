@@ -1,6 +1,23 @@
 """
-# # # ------------ DESCRIPTION ------------ # # #
-# Script to ...
+Module containing the required classes and functions to run the FAIR simple 
+climate model. 
+
+At the moment all that is required is the FAIR class, defined below. This 
+class allows the user to timestep their model, run it in full for a given 
+emissions series, set, update and print all parameters. 
+
+Each function is described by its docstring. To access these use 
+[function-name].__doc__ or read below.
+
+Bibtex reference: @article{millar_modified_2016, title = {A modified 
+impulse-response representation of the global response to carbon dioxide 
+emissions}, volume = {2016}, 
+url = {http://www.atmos-chem-phys-discuss.net/acp-2016-405/}, 
+doi = {10.5194/acp-2016-405}, 
+journal = {Atmospheric Chemistry and Physics Discussions}, 
+author = {Millar, R. J. and Nicholls, Z. R. and Friedlingstein, P. and 
+Allen, M. R.}, year = {2016}, keywords = {Carbon cycle, 
+FAIR, Simple climate model, Temperature response}, pages = {1--20} }
 """
 
 # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
