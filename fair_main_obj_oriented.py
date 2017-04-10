@@ -293,7 +293,7 @@ class FAIR(object):
 	@d.setter
 	def d(self, val):		
 		if type(val) not in [list, np.ndarray] or len(val) != 2:
-			raise ValueError("d must be a 2D array or list")
+			raise ValueError("d must be a length 2 1D array or list")
 
 		self._d = np.array(val,dtype=float)
 		self.calc_k_q()
@@ -305,10 +305,9 @@ class FAIR(object):
 	@a.setter
 	def a(self, val):		
 		if type(val) not in [list, np.ndarray] or len(val) != 4:
-			raise ValueError("a must be a 4D array or list")
+			raise ValueError("a must be a length 4 1D array or list")
 
 		if np.sum(val) != 1:
 			raise ValueError("sum of a coefficients must be 1 to conserve carbon")
 
 		self._a = np.array(val,dtype=float)
-		self.calc_k_q()
