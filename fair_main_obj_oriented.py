@@ -1,4 +1,10 @@
 """
+# -*- coding: utf-8 -*-
+# @Author: Zebedee Nicholls
+# @Date:   2017-04-03 20:28:08
+# @Last Modified by:   Zebedee Nicholls
+# @Last Modified time: 2017-04-10 10:52:47
+
 Module used to run the FAIR simple climate model. 
 
 # # ------------ CLASSES ------------ # #
