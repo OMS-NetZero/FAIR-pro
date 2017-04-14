@@ -1,0 +1,22 @@
+package:
+  name: fair
+  version: "0.0.0.dev0"
+
+source:
+  # requires git tagging to work I think...
+  git_rev: 0.0.0.dev0
+  git_url: https://github.com/OMS-NetZero/FAIR
+
+requirements:
+  build:
+    - python
+    - setuptools
+  run:
+    - python
+    - numpy
+    - scipy
+
+about:
+  home: https://github.com/OMS-NetZero/FAIR
+  license: Apache
+  license_file: LICENSE
