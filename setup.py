@@ -37,7 +37,7 @@ setup(name='fair',
       url='https://github.com/OMS-NetZero/FAIR',
       author='OMS-NetZero, Richard Millar, Zebedee Nicholls, Myles Allen',
       author_email='richard.millar@physics.ox.ac.uk',
-      # license='Apache',
+      license='Apache 2.0',
       packages=find_packages(exclude=['tests*']),
       install_requires=[
           'numpy',
