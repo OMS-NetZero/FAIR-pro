@@ -6,7 +6,22 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
     iirf_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
     return iirf_arr   -  targ_iirf
 
-def fair_scm(emissions=False,other_rf=0.0,q=np.array([0.469,0.200]),tcrecs=False,d=np.array([4.1,239.0]),a=np.array([0.2173,0.2240,0.2824,0.2763]),tau=np.array([1000000,394.4,36.54,4.304]),r0=32.40,rc=0.019,rt=4.165,F_2x=3.74,C_0=278.0,ppm_gtc=2.123,iirf_max=97.0,restart_in=False,restart_out=False):
+def fair_scm(emissions=False,
+             other_rf=0.0,
+             q=np.array([0.469,0.200]),
+             tcrecs=False,
+             d=np.array([4.1,239.0]),
+             a=np.array([0.2173,0.2240,0.2824,0.2763]),
+             tau=np.array([1000000,394.4,36.54,4.304]),
+             r0=32.40,
+             rc=0.019,
+             rt=4.165,
+             F_2x=3.74,
+             C_0=278.0,
+             ppm_gtc=2.123,
+             iirf_max=97.0,
+             restart_in=False,
+             restart_out=False):
 
   #Calculate the q1 and q2 model coefficients from the TCR, ECS and thermal response timescales.
   # ref eq. (4) and (5) of Millar et al ACP (2017)
