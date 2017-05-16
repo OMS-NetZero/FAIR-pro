@@ -19,4 +19,4 @@ Bibtex reference:
 
 ## Installation
 1. Make sure you have Python 2 and pip installed and are working in an environment that uses Python 2 by default
-1. From terminal/command prompt `pip install [whatever name we end up choosing]`
+1. From terminal/command prompt `pip install fair`
