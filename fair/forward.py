@@ -8,8 +8,8 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 
 def fair_scm(emissions=False,
              other_rf=0.0,
-             q=np.array([0.469,0.200]),
-             tcrecs=False,
+             q=np.array([0.33,0.41]),
+             tcrecs=np.array([1.6,2.75]),
              d=np.array([4.1,239.0]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
@@ -23,7 +23,8 @@ def fair_scm(emissions=False,
              restart_in=False,
              restart_out=False):
 
-  #Calculate the q1 and q2 model coefficients from the TCR, ECS and thermal response timescales.
+  # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
+  # (overwriting any other q array that might have been supplied)
   # ref eq. (4) and (5) of Millar et al ACP (2017)
   k = 1.0 - (d/70.0)*(1.0 - np.exp(-70.0/d))
   if type(tcrecs) in [np.ndarray,list]:
