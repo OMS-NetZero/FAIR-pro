@@ -18,10 +18,5 @@ Bibtex reference:
 }
 
 ## Installation
-1. Clone the repo: 
-   - https: `git clone https://github.com/OMS-NetZero/FAIR.git`.
-   - ssh: `git clone git@github.com:OMS-NetZero/FAIR.git`
-
-1. `cd` into the directory.
-
-1. A typical `python setup.py install` should suffice.
+1. Make sure you have Python 2 and pip installed and are working in an environment that uses Python 2 by default
+1. From terminal/command prompt `pip install fair`
