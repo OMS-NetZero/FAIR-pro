@@ -30,7 +30,7 @@ def fair_scm(emissions=False,
   if type(tcrecs) in [np.ndarray,list]:
     q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
 
-  #Set up the output timeseries variables
+  # Set up the output timeseries variables
   # emissions must be a numpy array for this to work
   if type(emissions) in [np.ndarray,list]:
     carbon_boxes_shape = tuple(list(emissions.shape) + [4])
@@ -94,10 +94,12 @@ def fair_scm(emissions=False,
 
     #Compute the updated concentrations box anomalies from the decay of the pervious year and the additional emisisons
     R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(emissions[x,np.newaxis]) / ppm_gtc
+    print 'ehy'
+    print emissions[x,np.newaxis]
     #Summ the boxes to get the total concentration anomaly
     C[x] = np.sum(R_i[...,x,:],axis=-1)
     #Calculate the additional carbon uptake
-    C_acc[x] =  C_acc[x-1] + 0.5*(emissions[x] + emissions[x-1]) - (C[x] - C[x-1])*ppm_gtc
+    C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x] - C[x-1])*ppm_gtc
 
     #Calculate the total radiative forcing
     if type(other_rf) == float:
