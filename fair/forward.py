@@ -6,7 +6,8 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
     iirf_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
     return iirf_arr   -  targ_iirf
 
-def fair_scm(emissions=False,
+def fair_scm(tstep=1.0,
+             emissions=False,
              other_rf=0.0,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
@@ -23,51 +24,23 @@ def fair_scm(emissions=False,
              restart_in=False,
              restart_out=False):
 
-  # So I can't get the timestepping to work for single year steps. At the 
-  # moment if you want to do a single timestep and you give an emissions array 
-  # of length 1 then all you do is initialise our variables. You don't enter 
-  # our loop as integ_len will be equal to 1 and range(1,1) returns nothing.
+  # adding the timestep, tstep, variable, means that our d and tau arrays have to be measured in years. This was already hard-coded in our calculation of q to be fair... 
 
-  # Ultimately you should be able to get identical results whether you 
-  # timestep FAIR year by year or run it continuously.
-
-  # My solution is to properly define what each of the values in each array 
-  # represent. We can change this but in the interest of having something here 
-  # is attempt 1, based off what the code already does
+  # Definitions of what each box means. Here we treat fluxes as being averages 
+  # over the timestep and state variables as the values at the end of the 
+  # timestep
     # emissions in timestep x
-        # average of all global emissions in timestep x. The model treats them 
-        # as if they've all been released instantaneously on Jan 1st of 
-        # timestep x 
-        # (see line R_i[0,:] = a * emissions[0,np.newaxis] / ppm_gtc)
+        # average of all global emissions in timestep x
     # concentrations in timestep x
-        # concentrations at the start of timestep x i.e. on Jan 1st. It is 
-        # directly affected by emissions in timestep x. This value is used to 
-        # calculate radiative forcing
+        # concentrations at the end of the timestep
     # radiative forcing in timestep x
-        # radiative forcing at the start of timestep x i.e. on Jan 1st. 
+        # average radiative forcing over the timestep. This definition isn't exactly accurate as we use concentrations (which are defined at a single point in time and hence don't change over the timestep) to calculate radiative forcing.
     # temperature in timestep x
-        # global mean temperatures at the end of the timestep i.e. on Dec 
-        # 31st. Note that we're implicitly assuming that the radiative forcing 
-        # applies throughout the entire year
-        # (see line T_j[x,:] = T_j[x-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]) 
-        # we also had the conflicting line 
-        # T_j[0,:] = (q/d)*(RF[0,np.newaxis]
-        # previously (I've changed it now). The two lines are conflicting as 
-        # the first one assumes that the radiative forcing acts over the 
-        # length of the year whilst the second assumes that the radiative 
-        # forcing acts in an infinitesimally small period of time).
+        # global mean temperatures at the end of the timestep
 
   # With these definitions it is now clear that initialisation and restart 
-  # values must be values from some previous point in time (even if that's 
-  # December 31st of the previous year). Hence they should not be returned.
-
-  # Of course I don't think any of this matters for overall results but I 
-  # think it does matter if we want people to pick this up and use it as that 
-  # requires a coherent story. Something which the 'master' branch code does 
-  # not currently tell.
-
-  # The ultimate question we have to answer is, if you run FAIR for a single 
-  # year, what are you actually doing?
+  # values must be values from the previous timestep. Hence they should not be 
+  # returned.
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -111,35 +84,46 @@ def fair_scm(emissions=False,
   T = np.zeros(integ_len)
 
   if restart_in:
-    # Calculate the parametrised iIRF and check if it is over the maximum allowed value
-    iirf[0] = rc * restart_in[2]  + rt * np.sum(restart_in[1])  + r0
-    if iirf[0] >= iirf_max:
-      iirf[0] = iirf_max
-      
-    # Linearly interpolate a solution for alpha
-    time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[0])))['x']
-
-    # Multiply default timescales by scale factor
-    tau_new = tau * time_scale_sf
-
-    # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[0] = restart_in[0]*np.exp(-1.0/tau_new) \
-              + a*(emissions[0,np.newaxis]) / ppm_gtc
+    R_i_pre = restart_in[0]
+    T_j_pre = restart_in[1]
+    C_acc_pre = restart_in[2]
 
   else:
-    # Initialise the carbon pools to be correct for first timestep in numerical method
-    R_i[0] = a * emissions[0,np.newaxis] / ppm_gtc
+    R_i_pre = [0.0,0.0,0.0,0.0]
+    T_j_pre = [0.0,0.0]
+    C_acc_pre = 0.0
+
+  # Calculate the parametrised iIRF and check if it is over the maximum allowed value
+  iirf[0] = rc * C_acc_pre + rt * np.sum(T_j_pre)  + r0
+
+  if iirf[0] >= iirf_max:
+    iirf[0] = iirf_max
+    
+  # Linearly interpolate a solution for alpha
+  time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[0])))['x']
+
+  # Multiply default timescales by scale factor
+  tau_new = tau * time_scale_sf
+
+  # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
+  R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
+              + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
   C[0] = np.sum(R_i[0])
 
-  RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf[0]
+  if restart_in:
+    RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(restart_in[0]) + C_0) /C_0) \
+            + other_rf[0]
+  else:
+    # we are starting from pre-industrial so CO2 forcing is initially zero
+    RF[0] = other_rf[0]
 
   # Update the thermal response boxes
+  T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d))
+
   if restart_in:
-    T_j[0] = restart_in[1]*np.exp(-1.0/d) \
-              + q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
-  else:
-    T_j[0] = q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
+    # add restart temperature (taking into account decay)
+    T_j[0] += restart_in[1]*np.exp(-tstep/d)
 
   # Sum the thermal response boxes to get the total temperature anomlay
   T[0]=np.sum(T_j[0])
@@ -161,19 +145,21 @@ def fair_scm(emissions=False,
     tau_new = tau * time_scale_sf
 
     # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[x] = R_i[x-1]*np.exp(-1.0/tau_new) + a*(emissions[x-1,np.newaxis]) / ppm_gtc
+    R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
+            + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
     # Sum the boxes to get the total concentration anomaly
     C[x] = np.sum(R_i[x])
 
     # Calculate the additional carbon uptake
-    C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x] - C[x-1])*ppm_gtc
+    C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x]-C[x-1]) * ppm_gtc
 
     # Calculate the total radiative forcing
-    RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf[x]
+    RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1] + C_0) /C_0) + other_rf[x]
 
     # Update the thermal response boxes
-    T_j[x] = T_j[x-1]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]
+    T_j[x] = T_j[x-1]*np.exp(-tstep/d) \
+            + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
     
     # Sum the thermal response boxes to get the total temperature anomaly
     T[x]=np.sum(T_j[x])
