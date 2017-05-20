@@ -79,31 +79,13 @@ def fair_scm(emissions=False,
   # Set up the output timeseries variables
   # emissions must be a numpy array for this to work
   if type(emissions) in [np.ndarray,list]:
-    carbon_boxes_shape = tuple(list(emissions.shape) + [4])
-    print '\nChanging carbon_boxes_shape = tuple(list(emissions.shape) + [4]) to'
-    print '(len(emissions),4) makes no difference?'
-    print carbon_boxes_shape == (len(emissions),4)
-    thermal_boxes_shape = tuple(list(emissions.shape) + [2])
-    print '\nChanging thermal_boxes_shape = tuple(list(emissions.shape) + [2]) to'
-    print '(len(emissions),2) makes no difference?'
-    print thermal_boxes_shape == (len(emissions),2)
-    integ_len = emissions.shape[-1]
-    print '\nChanging integ_len = emissions.shape[-1] to'
-    print 'len(emissions) makes no difference?'
-    print integ_len == len(emissions)
+    carbon_boxes_shape = (len(emissions),4)
+    thermal_boxes_shape = (len(emissions),2)
+    integ_len = len(emissions)
   elif type(other_rf) in [np.ndarray,list]:
-    carbon_boxes_shape = tuple(list(other_rf.shape) + [4])
-    print '\nChanging carbon_boxes_shape = tuple(list(other_rf.shape) + [4]) to'
-    print '(len(other_rf),4) makes no difference?'
-    print carbon_boxes_shape == (len(other_rf),4)
-    thermal_boxes_shape = tuple(list(other_rf.shape) + [2])
-    print '\nChanging thermal_boxes_shape = tuple(list(other_rf.shape) + [2]) to'
-    print '(len(other_rf),2) makes no difference?'
-    print thermal_boxes_shape == (len(other_rf),2)
-    integ_len = other_rf.shape[-1]
-    print '\nChanging integ_len = other_rf.shape[-1] to'
-    print 'len(other_rf) makes no difference?'
-    print integ_len == len(other_rf)
+    carbon_boxes_shape = (len(other_rf),4)
+    thermal_boxes_shape = (len(other_rf),2)
+    integ_len = len(other_rf)
     emissions = np.zeros(integ_len)
   else:
     raise ValueError("Neither emissions or other_rf is defined as a timeseries")
@@ -136,23 +118,13 @@ def fair_scm(emissions=False,
     tau_new = tau * time_scale_sf
 
     # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[0,:] = R_i_pre[0]*np.exp(-1.0/tau_new) + a*(emissions[0,np.newaxis]) / ppm_gtc
-    print '\nChanging R_i[0,:] to'
-    print 'R_i[0] makes no difference?'
-    print R_i[0,:] == R_i[0]
-
+    R_i[0] = R_i_pre[0]*np.exp(-1.0/tau_new) + a*(emissions[0,np.newaxis]) / ppm_gtc
 
   else:
     # Initialise the carbon pools to be correct for first timestep in numerical method
-    R_i[0,:] = a * emissions[0,np.newaxis] / ppm_gtc
-    print '\nChanging R_i[0,:] to'
-    print 'R_i[0] makes no difference?'
-    print R_i[0,:] == R_i[0]
+    R_i[0] = a * emissions[0,np.newaxis] / ppm_gtc
 
-  C[0] = np.sum(R_i[0,:],axis=-1)
-  print '\nChanging np.sum(R_i[0,:],axis=-1) to'
-  print 'np.sum(R_i[0]) makes no difference?'
-  print np.sum(R_i[0,:],axis=-1) == np.sum(R_i[0])
+  C[0] = np.sum(R_i[0])
 
   if type(other_rf) == float:
     RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf
@@ -161,20 +133,12 @@ def fair_scm(emissions=False,
 
   # Update the thermal response boxes
   if restart_in:
-    T_j[0,:] = T_j_pre*np.exp(-1.0/d) \
-               + q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
+    T_j[0] = T_j_pre*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
   else:
-    T_j[0,:] = q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
-
-  print '\nChanging T_j[0,:] to'
-  print 'T_j[0] makes no difference?'
-  print T_j[0,:] == T_j[0]
+    T_j[0] = q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
 
   # Sum the thermal response boxes to get the total temperature anomlay
-  T[0]=np.sum(T_j[0,:],axis=-1)
-  print '\nChanging np.sum(T_j[0,:],axis=-1) to'
-  print 'np.sum(T_j[0]) makes no difference?'
-  print np.sum(T_j[0,:],axis=-1) == np.sum(T_j[0])
+  T[0]=np.sum(T_j[0])
 
   for x in range(1,integ_len):
       
@@ -193,16 +157,10 @@ def fair_scm(emissions=False,
     tau_new = tau * time_scale_sf
 
     # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(emissions[x-1,np.newaxis]) / ppm_gtc
-    print '\nChanging R_i[x,:] to'
-    print 'R_i[x] makes no difference?'
-    print R_i[x,:] == R_i[x]
+    R_i[x] = R_i[x-1]*np.exp(-1.0/tau_new) + a*(emissions[x-1,np.newaxis]) / ppm_gtc
 
     # Sum the boxes to get the total concentration anomaly
-    C[x] = np.sum(R_i[...,x,:],axis=-1)
-    print '\nChanging np.sum(R_i[...,x,:],axis=-1) to'
-    print 'np.sum(R_i[x]) makes no difference?'
-    print np.sum(R_i[...,x,:],axis=-1) == np.sum(R_i[x])
+    C[x] = np.sum(R_i[x])
 
     # Calculate the additional carbon uptake
     C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x] - C[x-1])*ppm_gtc
@@ -214,16 +172,10 @@ def fair_scm(emissions=False,
       RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf[x]
 
     # Update the thermal response boxes
-    T_j[x,:] = T_j[x-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]
-    print '\nChanging T_j[x,:] to'
-    print 'T_j[x] makes no difference?'
-    print T_j[x,:] == T_j[x]
+    T_j[x] = T_j[x-1]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]
     
     # Sum the thermal response boxes to get the total temperature anomaly
-    T[x]=np.sum(T_j[x,:],axis=-1)
-    print '\nChanging np.sum(T_j[x,:],axis=-1) to'
-    print 'np.sum(T_j[x]) makes no difference?'
-    print np.sum(T_j[x,:],axis=-1) == np.sum(T_j[x])
+    T[x]=np.sum(T_j[x])
 
   if restart_out:
     restart_out_val=(R_i[-1],T_j[-1],C_acc[-1])
