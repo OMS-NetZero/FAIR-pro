@@ -77,16 +77,28 @@ def fair_scm(emissions=False,
     q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
 
   # Set up the output timeseries variables
-  # emissions must be a numpy array for this to work
   if type(emissions) in [np.ndarray,list]:
-    carbon_boxes_shape = (len(emissions),4)
-    thermal_boxes_shape = (len(emissions),2)
     integ_len = len(emissions)
+    # consider other_rf first
+    if (type(other_rf) in [np.ndarray,list]) \
+       and (len(other_rf)!=integ_len):
+        raise ValueError("The emissions and other_rf timeseries don't have the same length")
+    elif type(other_rf) in [int,float]:
+        other_rf = np.linspace(other_rf,other_rf,num=integ_len)
+
+    carbon_boxes_shape = (integ_len,4)
+    thermal_boxes_shape = (integ_len,2)
+    
   elif type(other_rf) in [np.ndarray,list]:
-    carbon_boxes_shape = (len(other_rf),4)
-    thermal_boxes_shape = (len(other_rf),2)
     integ_len = len(other_rf)
-    emissions = np.zeros(integ_len)
+    if type(emissions) in [int,float]:
+        emissions = np.linspace(emissions,emissions,num=integ_len)
+    else:
+        emissions = np.zeros(integ_len)
+
+    carbon_boxes_shape = (integ_len,4)
+    thermal_boxes_shape = (integ_len,2)
+    
   else:
     raise ValueError("Neither emissions or other_rf is defined as a timeseries")
 
@@ -94,20 +106,13 @@ def fair_scm(emissions=False,
   C_acc = np.zeros(integ_len)
   iirf = np.zeros(integ_len)
   R_i = np.zeros(carbon_boxes_shape)
-  T_j = np.zeros(thermal_boxes_shape)
-
   C = np.zeros(integ_len)
+  T_j = np.zeros(thermal_boxes_shape)
   T = np.zeros(integ_len)
 
   if restart_in:
-    R_i_pre=restart_in[0]
-    T_j_pre=restart_in[1]
-    C_acc_pre = restart_in[2]
-
-    T_pre=np.sum(T_j_pre)
-
     # Calculate the parametrised iIRF and check if it is over the maximum allowed value
-    iirf[0] = rc * C_acc_pre  + rt * T_pre  + r0
+    iirf[0] = rc * restart_in[2]  + rt * np.sum(restart_in[1])  + r0
     if iirf[0] >= iirf_max:
       iirf[0] = iirf_max
       
@@ -118,7 +123,8 @@ def fair_scm(emissions=False,
     tau_new = tau * time_scale_sf
 
     # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[0] = R_i_pre[0]*np.exp(-1.0/tau_new) + a*(emissions[0,np.newaxis]) / ppm_gtc
+    R_i[0] = restart_in[0]*np.exp(-1.0/tau_new) \
+              + a*(emissions[0,np.newaxis]) / ppm_gtc
 
   else:
     # Initialise the carbon pools to be correct for first timestep in numerical method
@@ -126,14 +132,12 @@ def fair_scm(emissions=False,
 
   C[0] = np.sum(R_i[0])
 
-  if type(other_rf) == float:
-    RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf
-  else:
-    RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf[0]
+  RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf[0]
 
   # Update the thermal response boxes
   if restart_in:
-    T_j[0] = T_j_pre*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
+    T_j[0] = restart_in[1]*np.exp(-1.0/d) \
+              + q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
   else:
     T_j[0] = q*(1-np.exp((-1.0)/d))*(RF[0,np.newaxis])
 
@@ -166,10 +170,7 @@ def fair_scm(emissions=False,
     C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x] - C[x-1])*ppm_gtc
 
     # Calculate the total radiative forcing
-    if type(other_rf) == float:
-      RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf
-    else:
-      RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf[x]
+    RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf[x]
 
     # Update the thermal response boxes
     T_j[x] = T_j[x-1]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]
