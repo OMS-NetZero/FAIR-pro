@@ -81,12 +81,12 @@ def fair_scm(emissions=False,
   if type(emissions) in [np.ndarray,list]:
     carbon_boxes_shape = tuple(list(emissions.shape) + [4])
     thermal_boxes_shape = tuple(list(emissions.shape) + [2])
-    integ_len = len(emissions)
+    integ_len = emissions.shape[-1]
   elif type(other_rf) in [np.ndarray,list]:
     carbon_boxes_shape = tuple(list(other_rf.shape) + [4])
     thermal_boxes_shape = tuple(list(other_rf.shape) + [2])
-    integ_len = len(other_rf)
-    emissions = np.zeros(integ_len)
+    integ_len = other_rf.shape[-1]
+    emissions = emissions.shape[-1]
   else:
     raise ValueError("Neither emissions or other_rf is defined as a timeseries")
 
