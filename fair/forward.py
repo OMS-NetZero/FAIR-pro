@@ -24,24 +24,6 @@ def fair_scm(tstep=1.0,
              restart_in=False,
              restart_out=False):
 
-  # adding the timestep, tstep, variable, means that our d and tau arrays have to be measured in years. This was already hard-coded in our calculation of q to be fair... 
-
-  # Definitions of what each box means. Here we treat fluxes as being averages 
-  # over the timestep and state variables as the values at the end of the 
-  # timestep
-    # emissions in timestep x
-        # average of all global emissions in timestep x
-    # concentrations in timestep x
-        # concentrations at the end of the timestep
-    # radiative forcing in timestep x
-        # average radiative forcing over the timestep. This definition isn't exactly accurate as we use concentrations (which are defined at a single point in time and hence don't change over the timestep) to calculate radiative forcing.
-    # temperature in timestep x
-        # global mean temperatures at the end of the timestep
-
-  # With these definitions it is now clear that initialisation and restart 
-  # values must be values from the previous timestep. Hence they should not be 
-  # returned.
-
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
   # ref eq. (4) and (5) of Millar et al ACP (2017)
@@ -111,8 +93,11 @@ def fair_scm(tstep=1.0,
 
   C[0] = np.sum(R_i[0])
 
+  # Calculate the additional carbon uptake
+  C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-np.sum(R_i_pre)) * ppm_gtc
+
   if restart_in:
-    RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(restart_in[0]) + C_0) /C_0) \
+    RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(R_i_pre) + C_0) /C_0) \
             + other_rf[0]
   else:
     # we are starting from pre-industrial so CO2 forcing is initially zero
@@ -123,7 +108,7 @@ def fair_scm(tstep=1.0,
 
   if restart_in:
     # add restart temperature (taking into account decay)
-    T_j[0] += restart_in[1]*np.exp(-tstep/d)
+    T_j[0] += T_j_pre*np.exp(-tstep/d)
 
   # Sum the thermal response boxes to get the total temperature anomlay
   T[0]=np.sum(T_j[0])
