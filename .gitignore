@@ -17,3 +17,6 @@
 
 # Ipython checkpoints
 .ipynb_checkpoints/*
+
+# autosaved python version of index.ipynb
+index.py

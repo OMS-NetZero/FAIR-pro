@@ -9,6 +9,7 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 def fair_scm(tstep=1.0,
              emissions=False,
              other_rf=0.0,
+             co2_concs=False,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
@@ -24,24 +25,6 @@ def fair_scm(tstep=1.0,
              restart_in=False,
              restart_out=False):
 
-  # adding the timestep, tstep, variable, means that our d and tau arrays have to be measured in years. This was already hard-coded in our calculation of q to be fair... 
-
-  # Definitions of what each box means. Here we treat fluxes as being averages 
-  # over the timestep and state variables as the values at the end of the 
-  # timestep
-    # emissions in timestep x
-        # average of all global emissions in timestep x
-    # concentrations in timestep x
-        # concentrations at the end of the timestep
-    # radiative forcing in timestep x
-        # average radiative forcing over the timestep. This definition isn't exactly accurate as we use concentrations (which are defined at a single point in time and hence don't change over the timestep) to calculate radiative forcing.
-    # temperature in timestep x
-        # global mean temperatures at the end of the timestep
-
-  # With these definitions it is now clear that initialisation and restart 
-  # values must be values from the previous timestep. Hence they should not be 
-  # returned.
-
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
   # ref eq. (4) and (5) of Millar et al ACP (2017)
@@ -50,9 +33,10 @@ def fair_scm(tstep=1.0,
     q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
 
   # Set up the output timeseries variables
+  # by default FAIR is not concentration driven
+  conc_driven=False
   if type(emissions) in [np.ndarray,list]:
     integ_len = len(emissions)
-    # consider other_rf first
     if (type(other_rf) in [np.ndarray,list]) \
        and (len(other_rf)!=integ_len):
         raise ValueError("The emissions and other_rf timeseries don't have the same length")
@@ -61,7 +45,19 @@ def fair_scm(tstep=1.0,
 
     carbon_boxes_shape = (integ_len,4)
     thermal_boxes_shape = (integ_len,2)
-    
+  
+  elif type(co2_concs) in [np.ndarray,list]:
+    integ_len = len(co2_concs)
+    conc_driven = True
+    if (type(other_rf) in [np.ndarray,list]) \
+       and (len(other_rf)!=integ_len):
+        raise ValueError("The concentrations and other_rf timeseries don't have the same length")
+    elif type(other_rf) in [int,float]:
+        other_rf = np.linspace(other_rf,other_rf,num=integ_len)
+
+    carbon_boxes_shape = (integ_len,4)
+    thermal_boxes_shape = (integ_len,2)
+
   elif type(other_rf) in [np.ndarray,list]:
     integ_len = len(other_rf)
     if type(emissions) in [int,float]:
@@ -71,9 +67,9 @@ def fair_scm(tstep=1.0,
 
     carbon_boxes_shape = (integ_len,4)
     thermal_boxes_shape = (integ_len,2)
-    
+
   else:
-    raise ValueError("Neither emissions or other_rf is defined as a timeseries")
+    raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
 
   RF = np.zeros(integ_len)
   C_acc = np.zeros(integ_len)
@@ -105,14 +101,20 @@ def fair_scm(tstep=1.0,
   # Multiply default timescales by scale factor
   tau_new = tau * time_scale_sf
 
-  # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-  R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
-              + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
+  if conc_driven:
+    C[0] = co2_concs[0]  - C_0
+  else:
+    # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
+    R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
+                + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
-  C[0] = np.sum(R_i[0])
+    C[0] = np.sum(R_i[0])
+
+    # Calculate the additional carbon uptake
+    C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-np.sum(R_i_pre)) * ppm_gtc
 
   if restart_in:
-    RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(restart_in[0]) + C_0) /C_0) \
+    RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(R_i_pre) + C_0) /C_0) \
             + other_rf[0]
   else:
     # we are starting from pre-industrial so CO2 forcing is initially zero
@@ -123,7 +125,7 @@ def fair_scm(tstep=1.0,
 
   if restart_in:
     # add restart temperature (taking into account decay)
-    T_j[0] += restart_in[1]*np.exp(-tstep/d)
+    T_j[0] += T_j_pre*np.exp(-tstep/d)
 
   # Sum the thermal response boxes to get the total temperature anomlay
   T[0]=np.sum(T_j[0])
@@ -144,15 +146,19 @@ def fair_scm(tstep=1.0,
     # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-    R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
-            + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
+    if conc_driven:
+      C[x] = co2_concs[x] - C_0
+    
+    else:
+      # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
+      R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
+              + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
-    # Sum the boxes to get the total concentration anomaly
-    C[x] = np.sum(R_i[x])
+      # Sum the boxes to get the total concentration anomaly
+      C[x] = np.sum(R_i[x])
 
-    # Calculate the additional carbon uptake
-    C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x]-C[x-1]) * ppm_gtc
+      # Calculate the additional carbon uptake
+      C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x]-C[x-1]) * ppm_gtc
 
     # Calculate the total radiative forcing
     RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1] + C_0) /C_0) + other_rf[x]
