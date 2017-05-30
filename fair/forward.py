@@ -15,8 +15,8 @@ def fair_scm(tstep=1.0,
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
              r0=32.40,
-             rc=0.019,
-             rt=4.165,
+             rC=0.019,
+             rT=4.165,
              F_2x=3.74,
              C_0=278.0,
              ppm_gtc=2.123,
@@ -94,7 +94,7 @@ def fair_scm(tstep=1.0,
     C_acc_pre = 0.0
 
   # Calculate the parametrised iIRF and check if it is over the maximum allowed value
-  iirf[0] = rc * C_acc_pre + rt * np.sum(T_j_pre)  + r0
+  iirf[0] = rC * C_acc_pre + rT * np.sum(T_j_pre)  + r0
 
   if iirf[0] >= iirf_max:
     iirf[0] = iirf_max
@@ -131,7 +131,7 @@ def fair_scm(tstep=1.0,
   for x in range(1,integ_len):
       
     # Calculate the parametrised iIRF and check if it is over the maximum allowed value
-    iirf[x] = rc * C_acc[x-1]  + rt*T[x-1]  + r0
+    iirf[x] = rC * C_acc[x-1]  + rT*T[x-1]  + r0
     if iirf[x] >= iirf_max:
       iirf[x] = iirf_max
       
