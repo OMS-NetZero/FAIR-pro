@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.optimize import root
 
-def iirf_interp_funct(alp_b,a,tau,targ_iirf):
-    iirf_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
-    return iirf_arr   -  targ_iirf
+def iirf100_interp_funct(alp_b,a,tau,targ_iirf100):
+    iirf100_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
+    return iirf100_arr   -  targ_iirf100
 
 def fair_scm(tstep=1.0,
              emissions=False,
@@ -20,7 +20,7 @@ def fair_scm(tstep=1.0,
              F_2x=3.74,
              C_0=278.0,
              ppm_gtc=2.123,
-             iirf_max=97.0,
+             iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0],
              restart_out=False):
 
@@ -72,7 +72,7 @@ def fair_scm(tstep=1.0,
 
   RF = np.zeros(integ_len)
   C_acc = np.zeros(integ_len)
-  iirf = np.zeros(integ_len)
+  iirf100 = np.zeros(integ_len)
   R_i = np.zeros(carbon_boxes_shape)
   C = np.zeros(integ_len)
   T_j = np.zeros(thermal_boxes_shape)
@@ -89,13 +89,13 @@ def fair_scm(tstep=1.0,
   else:
     # Calculate the parametrised iIRF and check if it is over the maximum 
     # allowed value
-    iirf[0] = rC * C_acc_pre + rT * np.sum(T_j_pre)  + r0
+    iirf100[0] = r0 + rC*C_acc_pre + rT*np.sum(T_j_pre)
 
-    if iirf[0] >= iirf_max:
-      iirf[0] = iirf_max
+    if iirf100[0] >= iirf100_max:
+      iirf100[0] = iirf100_max
       
-    # Linearly interpolate a solution for alpha
-    time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[0])))['x']
+    # Determine a solution for alpha
+    time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[0])))['x']
 
     # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
@@ -127,15 +127,15 @@ def fair_scm(tstep=1.0,
     else:
       # Calculate the parametrised iIRF and check if it is over the maximum 
       # allowed value
-      iirf[x] = rC * C_acc[x-1]  + rT*T[x-1]  + r0
-      if iirf[x] >= iirf_max:
-        iirf[x] = iirf_max
+      iirf100[x] = r0 + rC*C_acc[x-1] + rT*T[x-1]
+      if iirf100[x] >= iirf100_max:
+        iirf100[x] = iirf100_max
         
-      # Linearly interpolate a solution for alpha
+      # Determine a solution for alpha
       if x == 1:
-        time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[x])))['x']
+        time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[x])))['x']
       else:
-        time_scale_sf = (root(iirf_interp_funct,time_scale_sf,args=(a,tau,iirf[x])))['x']
+        time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
 
       # Multiply default timescales by scale factor
       tau_new = tau * time_scale_sf
