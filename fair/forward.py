@@ -29,7 +29,7 @@ def fair_scm(tstep=1.0,
   k = 1.0 - (d/70.0)*(1.0 - np.exp(-70.0/d))
   if type(tcrecs) in [np.ndarray,list]:
     q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) \
-        * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
+        * np.array([tcrecs[0]-k[1]*tcrecs[1],k[0]*tcrecs[1]-tcrecs[0]])
 
   # # # ------------ SET UP OUTPUT TIMESERIES VARIABLES ------------ # # #
   # by default FAIR is not concentration driven
@@ -98,7 +98,7 @@ def fair_scm(tstep=1.0,
     time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[0])))['x']
 
     # Multiply default timescales by scale factor
-    tau_new = tau * time_scale_sf
+    tau_new = time_scale_sf * tau
 
     # Compute the updated concentrations box anomalies from the decay of the 
     # previous year and the emisisons
@@ -138,7 +138,7 @@ def fair_scm(tstep=1.0,
         time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
 
       # Multiply default timescales by scale factor
-      tau_new = tau * time_scale_sf
+      tau_new = time_scale_sf * tau
 
       # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
       R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
@@ -148,7 +148,7 @@ def fair_scm(tstep=1.0,
       C[x] = np.sum(R_i[x])
 
       # Calculate the additional carbon uptake
-      C_acc[x] =  C_acc[x-1] + emissions[x] - (C[x]-C[x-1]) * ppm_gtc
+      C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
     # Calculate the total radiative forcing
     RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1] + C_0) /C_0) + other_rf[x]
