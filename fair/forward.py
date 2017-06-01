@@ -84,7 +84,7 @@ def fair_scm(tstep=1.0,
   C_acc_pre = in_state[2]
 
   if conc_driven:
-    C[0] = co2_concs[0]  - C_0
+    C[0] = co2_concs[0]
   
   else:
     # Calculate the parametrised iIRF and check if it is over the maximum 
@@ -105,12 +105,13 @@ def fair_scm(tstep=1.0,
     R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
               + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
-    C[0] = np.sum(R_i[0])
+    C[0] = np.sum(R_i[0]) + C_0
 
     # Calculate the additional carbon uptake
-    C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-np.sum(R_i_pre)) * ppm_gtc
+    C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
-  RF[0] = (F_2x/np.log(2.)) * np.log((np.sum(R_i_pre) + C_0) /C_0) \
+  # Calculate the radiative forcing using the previous timestep's CO2 concentration
+  RF[0] = (F_2x/np.log(2.)) * np.log(C[0] /C_0) \
             + other_rf[0]
 
   # Update the thermal response boxes
@@ -122,7 +123,7 @@ def fair_scm(tstep=1.0,
   # # # ------------ REST OF RUN ------------ # # #
   for x in range(1,integ_len):
     if conc_driven:
-      C[x] = co2_concs[x] - C_0
+      C[x] = co2_concs[x]
     
     else:
       # Calculate the parametrised iIRF and check if it is over the maximum 
@@ -145,13 +146,13 @@ def fair_scm(tstep=1.0,
               + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
       # Sum the boxes to get the total concentration anomaly
-      C[x] = np.sum(R_i[x])
+      C[x] = np.sum(R_i[x]) + C_0
 
       # Calculate the additional carbon uptake
       C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
-    # Calculate the total radiative forcing
-    RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1] + C_0) /C_0) + other_rf[x]
+    # Calculate the radiative forcing using the previous timestep's CO2 concentration
+    RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x]
 
     # Update the thermal response boxes
     T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
@@ -160,6 +161,6 @@ def fair_scm(tstep=1.0,
     T[x]=np.sum(T_j[x])
 
   if restart_out:
-    return C + C_0, T, (R_i[-1],T_j[-1],C_acc[-1])
+    return C, T, (R_i[-1],T_j[-1],C_acc[-1])
   else:
-    return C + C_0, T
+    return C, T
