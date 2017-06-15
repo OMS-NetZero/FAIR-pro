@@ -44,7 +44,7 @@ def fair_scm(tstep=1.0,
     if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
         raise ValueError("The emissions and other_rf timeseries don't have the same length")
     elif type(other_rf) in [int,float]:
-        other_rf = np.linspace(other_rf,other_rf,num=integ_len)
+        other_rf = np.full(integ_len,other_rf)
   
   # here we check if FAIR is concentration driven
   elif type(co2_concs) in [np.ndarray,list]:
@@ -53,13 +53,13 @@ def fair_scm(tstep=1.0,
     if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
         raise ValueError("The concentrations and other_rf timeseries don't have the same length")
     elif type(other_rf) in [int,float]:
-        other_rf = np.linspace(other_rf,other_rf,num=integ_len)
+        other_rf = np.full(integ_len,other_rf)
 
   # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
   elif type(other_rf) in [np.ndarray,list]:
     integ_len = len(other_rf)
     if type(emissions) in [int,float]:
-        emissions = np.linspace(emissions,emissions,num=integ_len)
+        emissions = np.full(integ_len,emissions)
     else:
         emissions = np.zeros(integ_len)
 
@@ -161,3 +161,166 @@ def fair_scm(tstep=1.0,
     return C, T, (R_i[-1],T_j[-1],C_acc[-1])
   else:
     return C, T
+
+# Define a function to plot FAIR's inputs and outputs
+# Shifts variables to appropriately represent their definitions (continuous 
+# throughout timestep or end of timestep)
+def plot_fair(emms,
+              conc,
+              forc,
+              temp,
+              y_0=0,
+              tuts=False,
+              infig=False,
+              ax1in=None,
+              ax2in=None,
+              ax3in=None,
+              ax4in=None,
+              colour={'emms':'black',
+                     'conc':'blue',
+                     'forc':'orange',
+                     'temp':'red'},
+              label=None,
+              linestyle='-',
+             ):
+  """
+  One line summary 
+
+  More details of behaviour if required.
+
+  # # ------------ ARGUMENTS ------------ # #
+  # sublime snippet for variable description is 'vardesc'
+
+  * => Optional argument
+  ^ => Keyword argument
+
+  # # ------------ RETURN VALUE ------------ # #
+  # sublime snippet for variable description is 'vardesc'
+  # fig: (matplotlib axes object)
+  #   the matplotlib axes with all our plotted variables
+
+  # # ------------ SIDE EFFECTS ------------ # #
+  # document side effects here
+
+  # # ------------ EXCEPTIONS ------------ # #
+  # sublime snippet for exception description is 'excdesc'
+
+  # # ------------ RESTRICTIONS ------------ # #
+  Document any restrictions on when the function can be called
+
+  """
+
+  # One line break before anything else
+
+  # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+  # # ------------ STANDARD LIBRARY ------------ # #
+  from math import ceil
+
+  # # ------------ THIRD PARTY ------------ # #
+  import numpy as np
+
+  from matplotlib import pyplot as plt
+  plt.style.use('seaborn-darkgrid')
+  plt.rcParams['figure.figsize'] = 16, 9
+  plt.rcParams['lines.linewidth'] = 1.5
+
+  font = {'weight' : 'normal',
+          'size'   : 12}
+
+  plt.rc('font', **font)
+
+  # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+  # # # ------------ CODE ------------ # # #
+  # # ------------ SORT OUT INPUT VARIABLES ------------ # #
+  pts = {'emms':emms,
+         'forc':forc,
+         'conc':conc,
+         'temp':temp}
+  
+  integ_len = 0
+
+  for j,var in enumerate(pts):
+    if type(pts[var]) == list:
+      pts[var] = np.array(pts[var])
+      integ_len = len(pts[var])
+    elif type(pts[var]) == np.ndarray:
+      integ_len = len(pts[var])
+
+  if integ_len == 0:
+    for name in pts:
+      print "{0}: {1}".format(name,type(pts[name]))
+    raise ValueError("Error: I can't work out which one of your input variables is a timeseries")
+
+  for j,var in enumerate(pts):
+    if type(pts[var]) == np.ndarray and len(pts[var]) == integ_len:
+      pass
+    elif type(pts[var]) == np.ndarray and len(pts[var]) != integ_len:
+      for name in pts:
+        print "{0}: {1}\nlength: {2}".format(name,
+                                             type(pts[name]),
+                                             len(pts[name]))
+      raise ValueError("Error: Your timeseries are not all the same length, I don't know what to do")
+    else:
+      if type(pts[var]) in [float,int]:
+        pts[var] = np.full(integ_len,pts[var])
+      else:
+        pts[var] = np.zeros(integ_len)
+
+  # # ------------ SORT OUT TIME VARIABLE ------------ # #
+  # state variables are valid at the end of the timestep so we
+  # go from 1 - integ_len + 1 rather than 0 - integ_len
+  time = np.arange(0.99,integ_len+0.99) + y_0
+
+  if not tuts:
+    tuts = 'units unknown'
+
+  # # ------------ PREPARE FLUX VARIABLES FOR PLOTTING  ------------ # #
+  # Flux variables are assumed constant throughout the timestep to make this appear 
+  # on the plot we have to do the following if there's fewer than 1000 timesteps
+  fmintsp = 1000
+  if integ_len < fmintsp:
+    # work out small you need to divide each timestep to get 1000 timesteps
+    div = ceil(fmintsp/integ_len)
+    ftime = np.arange(0,integ_len,1.0/div) + y_0
+    fluxes = ['emms','forc']
+    for f in fluxes:
+      tmp = []
+      for j,v in enumerate(pts[f]):
+        for i in range(0,int(div)):
+          tmp.append(v)
+      pts[f] = tmp
+            
+  else:
+    ftime = time - 0.5
+    
+  if not infig:
+    fig = plt.figure()
+    ax1 = fig.add_subplot(221)
+    ax2 = fig.add_subplot(222)
+    ax3 = fig.add_subplot(223)
+    ax4 = fig.add_subplot(224)
+  else:
+    fig = infig
+    ax1 = ax1in
+    ax2 = ax2in
+    ax3 = ax3in
+    ax4 = ax4in
+
+  ax1.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
+  ax1.set_ylabel('Emissions (GtC)')
+  if label is not None:
+    ax1.legend(loc='best')
+  ax2.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
+  ax2.set_ylabel('CO$_2$ concentrations (ppm)')
+  ax2.set_xlim(ax1.get_xlim())
+  ax3.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
+  ax3.set_ylabel('Other radiative forcing (W.m$^{-2}$)')
+  ax3.set_xlabel('Time ({0})'.format(tuts))
+  ax4.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
+  ax4.set_ylabel('Temperature anomaly (K)')
+  ax4.set_xlabel(ax3.get_xlabel())
+  ax4.set_xlim(ax3.get_xlim())
+  fig.tight_layout()
+
+  return fig,ax1,ax2,ax3,ax4
