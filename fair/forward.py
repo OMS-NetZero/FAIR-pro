@@ -1,10 +1,13 @@
+# Import required packages
 import numpy as np
 from scipy.optimize import root
 
-def iirf100_interp_funct(alp_b,a,tau,targ_iirf100):
-    iirf100_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
+# Define a function which gives the relationship between iIRF_100 and scaling factor, alpha
+def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
+    iirf100_arr = alpha*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alpha)))))
     return iirf100_arr   -  targ_iirf100
 
+# Define the FAIR simple climate model function
 def fair_scm(tstep=1.0,
              emissions=False,
              other_rf=0.0,
@@ -32,31 +35,27 @@ def fair_scm(tstep=1.0,
         * np.array([tcrecs[0]-k[1]*tcrecs[1],k[0]*tcrecs[1]-tcrecs[0]])
 
   # # # ------------ SET UP OUTPUT TIMESERIES VARIABLES ------------ # # #
+  # the integ_len variable is used to store the length of our timeseries
   # by default FAIR is not concentration driven
   conc_driven=False
+  # here we check if FAIR is emissions driven
   if type(emissions) in [np.ndarray,list]:
     integ_len = len(emissions)
-    if (type(other_rf) in [np.ndarray,list]) \
-       and (len(other_rf)!=integ_len):
+    if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
         raise ValueError("The emissions and other_rf timeseries don't have the same length")
     elif type(other_rf) in [int,float]:
         other_rf = np.linspace(other_rf,other_rf,num=integ_len)
-
-    carbon_boxes_shape = (integ_len,4)
-    thermal_boxes_shape = (integ_len,2)
   
+  # here we check if FAIR is concentration driven
   elif type(co2_concs) in [np.ndarray,list]:
     integ_len = len(co2_concs)
     conc_driven = True
-    if (type(other_rf) in [np.ndarray,list]) \
-       and (len(other_rf)!=integ_len):
+    if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
         raise ValueError("The concentrations and other_rf timeseries don't have the same length")
     elif type(other_rf) in [int,float]:
         other_rf = np.linspace(other_rf,other_rf,num=integ_len)
 
-    carbon_boxes_shape = (integ_len,4)
-    thermal_boxes_shape = (integ_len,2)
-
+  # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
   elif type(other_rf) in [np.ndarray,list]:
     integ_len = len(other_rf)
     if type(emissions) in [int,float]:
@@ -64,22 +63,24 @@ def fair_scm(tstep=1.0,
     else:
         emissions = np.zeros(integ_len)
 
-    carbon_boxes_shape = (integ_len,4)
-    thermal_boxes_shape = (integ_len,2)
-
   else:
     raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
 
   RF = np.zeros(integ_len)
   C_acc = np.zeros(integ_len)
   iirf100 = np.zeros(integ_len)
+
+  carbon_boxes_shape = (integ_len,4)
   R_i = np.zeros(carbon_boxes_shape)
   C = np.zeros(integ_len)
+
+  thermal_boxes_shape = (integ_len,2)
   T_j = np.zeros(thermal_boxes_shape)
   T = np.zeros(integ_len)
 
   # # # ------------ FIRST TIMESTEP ------------ # # #
   R_i_pre = in_state[0]
+  C_pre = np.sum(R_i_pre) + C_0
   T_j_pre = in_state[1]
   C_acc_pre = in_state[2]
 
@@ -90,11 +91,10 @@ def fair_scm(tstep=1.0,
     # Calculate the parametrised iIRF and check if it is over the maximum 
     # allowed value
     iirf100[0] = r0 + rC*C_acc_pre + rT*np.sum(T_j_pre)
-
     if iirf100[0] >= iirf100_max:
       iirf100[0] = iirf100_max
       
-    # Determine a solution for alpha
+    # Determine a solution for alpha using scipy's root finder
     time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[0])))['x']
 
     # Multiply default timescales by scale factor
@@ -111,14 +111,14 @@ def fair_scm(tstep=1.0,
     C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
   # Calculate the radiative forcing using the previous timestep's CO2 concentration
-  RF[0] = (F_2x/np.log(2.)) * np.log(C[0] /C_0) \
-            + other_rf[0]
+
+  RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0]
 
   # Update the thermal response boxes
   T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
 
   # Sum the thermal response boxes to get the total temperature anomlay
-  T[0]=np.sum(T_j[0])
+  T[0] = np.sum(T_j[0])
 
   # # # ------------ REST OF RUN ------------ # # #
   for x in range(1,integ_len):
@@ -132,11 +132,8 @@ def fair_scm(tstep=1.0,
       if iirf100[x] >= iirf100_max:
         iirf100[x] = iirf100_max
         
-      # Determine a solution for alpha
-      if x == 1:
-        time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[x])))['x']
-      else:
-        time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
+      # Determine a solution for alpha using scipy's root finder
+      time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
 
       # Multiply default timescales by scale factor
       tau_new = time_scale_sf * tau
@@ -158,7 +155,7 @@ def fair_scm(tstep=1.0,
     T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
     
     # Sum the thermal response boxes to get the total temperature anomaly
-    T[x]=np.sum(T_j[x])
+    T[x] = np.sum(T_j[x])
 
   if restart_out:
     return C, T, (R_i[-1],T_j[-1],C_acc[-1])
