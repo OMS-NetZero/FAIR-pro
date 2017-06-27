@@ -20,3 +20,8 @@
 
 # autosaved python version of index.ipynb
 index.py
+
+# figures
+*.png
+*.pdf
+exercises-figures*

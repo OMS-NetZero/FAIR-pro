@@ -172,10 +172,10 @@ def plot_fair(emms,
               y_0=0,
               tuts=False,
               infig=False,
-              ax1in=None,
-              ax2in=None,
-              ax3in=None,
-              ax4in=None,
+              emmsaxin=None,
+              concaxin=None,
+              forcaxin=None,
+              tempaxin=None,
               colour={'emms':'black',
                      'conc':'blue',
                      'forc':'orange',
@@ -225,7 +225,7 @@ def plot_fair(emms,
   plt.rcParams['lines.linewidth'] = 1.5
 
   font = {'weight' : 'normal',
-          'size'   : 12}
+          'size'   : 16}
 
   plt.rc('font', **font)
 
@@ -296,31 +296,31 @@ def plot_fair(emms,
     
   if not infig:
     fig = plt.figure()
-    ax1 = fig.add_subplot(221)
-    ax2 = fig.add_subplot(222)
-    ax3 = fig.add_subplot(223)
-    ax4 = fig.add_subplot(224)
+    emmsax = fig.add_subplot(221)
+    concax = fig.add_subplot(222)
+    forcax = fig.add_subplot(223)
+    tempax = fig.add_subplot(224)
   else:
     fig = infig
-    ax1 = ax1in
-    ax2 = ax2in
-    ax3 = ax3in
-    ax4 = ax4in
+    emmsax = emmsaxin
+    concax = concaxin
+    forcax = forcaxin
+    tempax = tempaxin
 
-  ax1.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
-  ax1.set_ylabel('Emissions (GtC)')
+  emmsax.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
+  emmsax.set_ylabel('Emissions (GtC)')
   if label is not None:
-    ax1.legend(loc='best')
-  ax2.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
-  ax2.set_ylabel('CO$_2$ concentrations (ppm)')
-  ax2.set_xlim(ax1.get_xlim())
-  ax3.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
-  ax3.set_ylabel('Other radiative forcing (W.m$^{-2}$)')
-  ax3.set_xlabel('Time ({0})'.format(tuts))
-  ax4.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
-  ax4.set_ylabel('Temperature anomaly (K)')
-  ax4.set_xlabel(ax3.get_xlabel())
-  ax4.set_xlim(ax3.get_xlim())
+    emmsax.legend(loc='best')
+  concax.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
+  concax.set_ylabel('CO$_2$ concentrations (ppm)')
+  concax.set_xlim(emmsax.get_xlim())
+  forcax.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
+  forcax.set_ylabel('Other radiative forcing (W.m$^{-2}$)')
+  forcax.set_xlabel('Time ({0})'.format(tuts))
+  tempax.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
+  tempax.set_ylabel('Temperature anomaly (K)')
+  tempax.set_xlabel(forcax.get_xlabel())
+  tempax.set_xlim(forcax.get_xlim())
   fig.tight_layout()
 
-  return fig,ax1,ax2,ax3,ax4
+  return fig,emmsax,concax,forcax,tempax
