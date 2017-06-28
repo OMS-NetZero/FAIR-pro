@@ -1,9 +1,64 @@
-# Import required packages
+"""
+Python module for forward calculations with the FAIR climate model
+
+List of classes, exceptions and functions exported by the module. 
+
+# # ------------ CLASSES ------------ # #
+sublime snippet for module description in header is 'hclsdesc'
+
+# # ------------ EXCEPTIONS ------------ # #
+sublime snippet for exception description in header is 'hexcdesc'
+
+# # ------------ FUNCTIONS ------------ # #
+iirf100_interp_funct: calculate difference between iIRF100 and target iIRF100 for given alpha
+
+fair_scm: run fair forward calculation
+
+plot_fair: plot fair output variables
+
+# # ------------ ANY OTHER OBJECTS EXPORTED ------------ # #
+describe them here
+"""
+
+# # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+# # ------------ STANDARD LIBRARY ------------ # #
+
+# # ------------ THIRD PARTY ------------ # #
 import numpy as np
 from scipy.optimize import root
 
+# # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
 # Define a function which gives the relationship between iIRF_100 and scaling factor, alpha
 def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
+    """
+    Calculate difference between iIRF100 and target iIRF100 for given alpha
+
+    # # ------------ ARGUMENTS ------------ # #
+    alpha: (float/int)
+      carbon pool response time scaling factor (dimensionless)
+
+    a: (np.array)
+      fraction of emitted carbon which goes into each carbon pool (dimensionless)
+
+    tau: (np.array)
+      response time of each carbon pool when alpha = 1 (yrs)
+
+    targ_iirf100: (float/int)
+      target value of the 100-year integrated impulse response (iIRF100)
+
+    # # ------------ RETURN VALUE ------------ # #
+    iirf100_arr - targ_iirf100: (float)
+      difference between target and calculated iIRF100
+    """
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+    import numpy as np
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
     iirf100_arr = alpha*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alpha)))))
     return iirf100_arr   -  targ_iirf100
 
@@ -26,145 +81,261 @@ def fair_scm(tstep=1.0,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0],
              restart_out=False):
+    """
+    Run fair forward calculation
 
-  # # # ------------ CALCULATE Q ARRAY ------------ # # #
-  # If TCR and ECS are supplied, overwrite the q array
-  k = 1.0 - (d/70.0)*(1.0 - np.exp(-70.0/d))
-  if type(tcrecs) in [np.ndarray,list]:
-    q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) \
-        * np.array([tcrecs[0]-k[1]*tcrecs[1],k[0]*tcrecs[1]-tcrecs[0]])
+    Takes input emissions/concentrations and forcing arrays and returns global 
+    mean atmospheric CO_2 concentrations and temperatures.
 
-  # # # ------------ SET UP OUTPUT TIMESERIES VARIABLES ------------ # # #
-  # the integ_len variable is used to store the length of our timeseries
-  # by default FAIR is not concentration driven
-  conc_driven=False
-  # here we check if FAIR is emissions driven
-  if type(emissions) in [np.ndarray,list]:
-    integ_len = len(emissions)
-    if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
-        raise ValueError("The emissions and other_rf timeseries don't have the same length")
-    elif type(other_rf) in [int,float]:
-        other_rf = np.full(integ_len,other_rf)
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+
+    tstep:^ (float)
+      Length of a timestep (yrs)
+
+    emissions:^ (np.array/list/float/int/bool)
+      CO_2 emissions timeseries (GtC/yr). If a scalar then emissions are 
+      assumed to be constant throughout the run. If false then emissions 
+      aren't used.
+
+    other_rf:^ (np.array/list/float/int)
+      Non-CO_2 radiative forcing timeseries (W/m^2). If a scalar then other_rf 
+      is assumed to be constant throughout the run.
+
+    co2_concs:^ (np.array/list/bool)
+      Atmospheric CO_2 concentrations timeseries (ppmv). If emissions are 
+      supplied then co2_concs is not used.
+
+    q:^ (np.array)
+      response of each thermal box to radiative forcing (K/(W/m^2)). 
+      Over-written if tcrecs is supplied (be careful as this is default 
+      behaviour).
+
+    tcrecs:^ (np.array)
+      Transient climate response (TCR) and equilibrium climate sensitivity 
+      (ECS) array (K). tcrecs[0] is TCR and tcrecs[1] is ECS.
+
+    d:^ (np.array)
+      response time of each thermal box (yrs)
+
+    a:^ (np.array)
+      fraction of emitted carbon which goes into each carbon pool 
+      (dimensionless)
+
+    tau:^ (np.array)
+      unscaled response time of each carbon pool (yrs)
+
+    r0:^ (float)
+      pre-industrial 100-year integrated impulse response (iIRF100) (yrs)
+
+    rC:^ (float)
+      sensitivity of iIRF100 to CO_2 uptake by the land and oceans (yrs/GtC)
+
+    rT:^ (float)
+      sensitivity of iIRF100 to increases in global mean temperature (yrs/K)
+
+    F_2x:^ (float)
+      radiative forcing due to a doubling of atmospheric CO_2 concentrations 
+      (W/m^2)
+
+    C_0:^ (float)
+      pre-industrial atmospheric CO_2 concentrations (ppmv)
+
+    ppm_gtc:^ (float)
+      ppmv to GtC conversion factor (GtC/ppmv)
+
+    iirf100_max:^ (float)
+      maximum allowed value of iIRF100 (keeps the model stable) (yrs)
+
+    in_state:^ (list/np.array)
+      initial state of the climate system with elements:
+        [0]: (np.array/list)
+          co_2 concentration of each carbon pool (ppmv)
+        [1]: (np.array/list)
+          temp of each temperature response box (K)
+        [2]: (float)
+          cumulative carbon uptake (GtC)
+
+    restart_out:^ (bool)
+      whether to return the final state of the climate system or not
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    # ------------ DEFAULT ------------ #
+    C: (np.array)
+      timeseries of atmospheric CO_2 concentrations (ppmv)
+
+    T: (np.array)
+      timeseries of global mean temperatures (K)
+
+    # ------------ IF RESTART_OUT == TRUE ------------ #
+    As above with the addition of a tuple with elements
+    [0]: (np.array/list)
+      co_2 concentration of each carbon pool at the end of the run (ppmv)
+    [1]: (np.array/list)
+      temp of each temperature response box at the end of the run (K)
+    [2]: (float)
+      cumulative carbon uptake at the end of the run (GtC)
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+    import numpy as np
+    from scipy.optimize import root
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+
+    # # # ------------ CALCULATE Q ARRAY ------------ # # #
+    # If TCR and ECS are supplied, overwrite the q array
+    k = 1.0 - (d/70.0)*(1.0 - np.exp(-70.0/d))
+    if type(tcrecs) in [np.ndarray,list]:
+        q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) \
+            * np.array([tcrecs[0]-k[1]*tcrecs[1],k[0]*tcrecs[1]-tcrecs[0]])
+
+    # # # ------------ SET UP OUTPUT TIMESERIES VARIABLES ------------ # # #
+    # the integ_len variable is used to store the length of our timeseries
+    # by default FAIR is not concentration driven
+    conc_driven=False
+    # here we check if FAIR is emissions driven
+    if type(emissions) in [np.ndarray,list]:
+        integ_len = len(emissions)
+        if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
+            raise ValueError("The emissions and other_rf timeseries don't have the same length")
+        elif type(other_rf) in [int,float]:
+            other_rf = np.full(integ_len,other_rf)
   
-  # here we check if FAIR is concentration driven
-  elif type(co2_concs) in [np.ndarray,list]:
-    integ_len = len(co2_concs)
-    conc_driven = True
-    if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
-        raise ValueError("The concentrations and other_rf timeseries don't have the same length")
-    elif type(other_rf) in [int,float]:
-        other_rf = np.full(integ_len,other_rf)
+    # here we check if FAIR is concentration driven
+    elif type(co2_concs) in [np.ndarray,list]:
+        integ_len = len(co2_concs)
+        conc_driven = True
+        if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
+            raise ValueError("The concentrations and other_rf timeseries don't have the same length")
+        elif type(other_rf) in [int,float]:
+            other_rf = np.full(integ_len,other_rf)
 
-  # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
-  elif type(other_rf) in [np.ndarray,list]:
-    integ_len = len(other_rf)
-    if type(emissions) in [int,float]:
-        emissions = np.full(integ_len,emissions)
+    # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
+    elif type(other_rf) in [np.ndarray,list]:
+        integ_len = len(other_rf)
+        if type(emissions) in [int,float]:
+            emissions = np.full(integ_len,emissions)
+        else:
+            emissions = np.zeros(integ_len)
+
     else:
-        emissions = np.zeros(integ_len)
+        raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
 
-  else:
-    raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
+    RF = np.zeros(integ_len)
+    C_acc = np.zeros(integ_len)
+    iirf100 = np.zeros(integ_len)
 
-  RF = np.zeros(integ_len)
-  C_acc = np.zeros(integ_len)
-  iirf100 = np.zeros(integ_len)
+    carbon_boxes_shape = (integ_len,4)
+    R_i = np.zeros(carbon_boxes_shape)
+    C = np.zeros(integ_len)
 
-  carbon_boxes_shape = (integ_len,4)
-  R_i = np.zeros(carbon_boxes_shape)
-  C = np.zeros(integ_len)
+    thermal_boxes_shape = (integ_len,2)
+    T_j = np.zeros(thermal_boxes_shape)
+    T = np.zeros(integ_len)
 
-  thermal_boxes_shape = (integ_len,2)
-  T_j = np.zeros(thermal_boxes_shape)
-  T = np.zeros(integ_len)
+    # # # ------------ FIRST TIMESTEP ------------ # # #
+    R_i_pre = in_state[0]
+    C_pre = np.sum(R_i_pre) + C_0
+    T_j_pre = in_state[1]
+    C_acc_pre = in_state[2]
 
-  # # # ------------ FIRST TIMESTEP ------------ # # #
-  R_i_pre = in_state[0]
-  C_pre = np.sum(R_i_pre) + C_0
-  T_j_pre = in_state[1]
-  C_acc_pre = in_state[2]
-
-  if conc_driven:
-    C[0] = co2_concs[0]
-  
-  else:
-    # Calculate the parametrised iIRF and check if it is over the maximum 
-    # allowed value
-    iirf100[0] = r0 + rC*C_acc_pre + rT*np.sum(T_j_pre)
-    if iirf100[0] >= iirf100_max:
-      iirf100[0] = iirf100_max
-      
-    # Determine a solution for alpha using scipy's root finder
-    time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[0])))['x']
-
-    # Multiply default timescales by scale factor
-    tau_new = time_scale_sf * tau
-
-    # Compute the updated concentrations box anomalies from the decay of the 
-    # previous year and the emisisons
-    R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
-              + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
-
-    C[0] = np.sum(R_i[0]) + C_0
-
-    # Calculate the additional carbon uptake
-    C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
-
-  # Calculate the radiative forcing using the previous timestep's CO2 concentration
-
-  RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0]
-
-  # Update the thermal response boxes
-  T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
-
-  # Sum the thermal response boxes to get the total temperature anomlay
-  T[0] = np.sum(T_j[0])
-
-  # # # ------------ REST OF RUN ------------ # # #
-  for x in range(1,integ_len):
     if conc_driven:
-      C[x] = co2_concs[x]
-    
+        C[0] = co2_concs[0]
+  
     else:
-      # Calculate the parametrised iIRF and check if it is over the maximum 
-      # allowed value
-      iirf100[x] = r0 + rC*C_acc[x-1] + rT*T[x-1]
-      if iirf100[x] >= iirf100_max:
-        iirf100[x] = iirf100_max
-        
-      # Determine a solution for alpha using scipy's root finder
-      time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
+        # Calculate the parametrised iIRF and check if it is over the maximum 
+        # allowed value
+        iirf100[0] = r0 + rC*C_acc_pre + rT*np.sum(T_j_pre)
+        if iirf100[0] >= iirf100_max:
+          iirf100[0] = iirf100_max
+          
+        # Determine a solution for alpha using scipy's root finder
+        time_scale_sf = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[0])))['x']
 
-      # Multiply default timescales by scale factor
-      tau_new = time_scale_sf * tau
+        # Multiply default timescales by scale factor
+        tau_new = time_scale_sf * tau
 
-      # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
-      R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
-              + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
+        # Compute the updated concentrations box anomalies from the decay of the 
+        # previous year and the emisisons
+        R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
+                  + (emissions[0,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
-      # Sum the boxes to get the total concentration anomaly
-      C[x] = np.sum(R_i[x]) + C_0
+        C[0] = np.sum(R_i[0]) + C_0
 
-      # Calculate the additional carbon uptake
-      C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
+        # Calculate the additional carbon uptake
+        C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
     # Calculate the radiative forcing using the previous timestep's CO2 concentration
-    RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x]
+
+    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0]
 
     # Update the thermal response boxes
-    T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
-    
-    # Sum the thermal response boxes to get the total temperature anomaly
-    T[x] = np.sum(T_j[x])
+    T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
 
-  if restart_out:
-    return C, T, (R_i[-1],T_j[-1],C_acc[-1])
-  else:
-    return C, T
+    # Sum the thermal response boxes to get the total temperature anomlay
+    T[0] = np.sum(T_j[0])
 
-# Define a function to plot FAIR's inputs and outputs
-# Shifts variables to appropriately represent their definitions (continuous 
-# throughout timestep or end of timestep)
+    # # # ------------ REST OF RUN ------------ # # #
+    for x in range(1,integ_len):
+        if conc_driven:
+          C[x] = co2_concs[x]
+        
+        else:
+          # Calculate the parametrised iIRF and check if it is over the maximum 
+          # allowed value
+          iirf100[x] = r0 + rC*C_acc[x-1] + rT*T[x-1]
+          if iirf100[x] >= iirf100_max:
+            iirf100[x] = iirf100_max
+            
+          # Determine a solution for alpha using scipy's root finder
+          time_scale_sf = (root(iirf100_interp_funct,time_scale_sf,args=(a,tau,iirf100[x])))['x']
+
+          # Multiply default timescales by scale factor
+          tau_new = time_scale_sf * tau
+
+          # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
+          R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
+                  + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
+
+          # Sum the boxes to get the total concentration anomaly
+          C[x] = np.sum(R_i[x]) + C_0
+
+          # Calculate the additional carbon uptake
+          C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
+
+        # Calculate the radiative forcing using the previous timestep's CO2 concentration
+        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x]
+
+        # Update the thermal response boxes
+        T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
+        
+        # Sum the thermal response boxes to get the total temperature anomaly
+        T[x] = np.sum(T_j[x])
+
+    if restart_out:
+        return C, T, (R_i[-1],T_j[-1],C_acc[-1])
+    else:
+        return C, T
+
 def plot_fair(emms,
               conc,
               forc,
@@ -172,10 +343,10 @@ def plot_fair(emms,
               y_0=0,
               tuts=False,
               infig=False,
-              emmsaxin=None,
-              concaxin=None,
-              forcaxin=None,
-              tempaxin=None,
+              inemmsax=None,
+              inconcax=None,
+              inforcax=None,
+              intempax=None,
               colour={'emms':'black',
                      'conc':'blue',
                      'forc':'orange',
@@ -183,144 +354,198 @@ def plot_fair(emms,
               label=None,
               linestyle='-',
              ):
-  """
-  One line summary 
+    """
+    Function to plot FAIR variables
 
-  More details of behaviour if required.
+    Takes some of the work out of making a panel plot and ensures that the 
+    variables appear as they are interpreted by fair e.g. fluxes are constant 
+    over the timestep rather than the default linear interpolation between 
+    values as done by most plotting routines.
 
-  # # ------------ ARGUMENTS ------------ # #
-  # sublime snippet for variable description is 'vardesc'
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
 
-  * => Optional argument
-  ^ => Keyword argument
+    emms: (np.array/list)
+      CO_2 emissions timeseries (GtC)
 
-  # # ------------ RETURN VALUE ------------ # #
-  # sublime snippet for variable description is 'vardesc'
-  # fig: (matplotlib axes object)
-  #   the matplotlib axes with all our plotted variables
+    conc: (np.array/list)
+      CO_2 concentrations timeseries (ppmv)
 
-  # # ------------ SIDE EFFECTS ------------ # #
-  # document side effects here
+    forc: (np.array/list)
+      Non-CO_2 forcing timeseries (W/m^2)
 
-  # # ------------ EXCEPTIONS ------------ # #
-  # sublime snippet for exception description is 'excdesc'
+    temp: (np.array/list)
+      Global mean temperature timeseries (K)
 
-  # # ------------ RESTRICTIONS ------------ # #
-  Document any restrictions on when the function can be called
+    y_0:^ (float/int)
+      starting value of your timeseries, used to set min of time axis (same as time units)
 
-  """
+    tuts:^ (string/bool)
+      time units. If not supplied then 'units unknown' is printed
 
-  # One line break before anything else
+    infig:^ (matplotlib.figure.Figure)
+      pre-existing figure we should plot onto
 
-  # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
-  # # ------------ STANDARD LIBRARY ------------ # #
-  from math import ceil
+    inemmsax:^ (subplots.AxesSubplot)
+      pre-existing axis the emissions should be plotted onto
 
-  # # ------------ THIRD PARTY ------------ # #
-  import numpy as np
+    inconcax:^ (subplots.AxesSubplot)
+      pre-existing axis the CO_2 concentrations should be plotted onto
 
-  from matplotlib import pyplot as plt
-  plt.style.use('seaborn-darkgrid')
-  plt.rcParams['figure.figsize'] = 16, 9
-  plt.rcParams['lines.linewidth'] = 1.5
+    inforcax:^ (subplots.AxesSubplot)
+      pre-existing axis the non-CO_2 forcing should be plotted onto
 
-  font = {'weight' : 'normal',
+    intempax:^ (subplots.AxesSubplot)
+      pre-existing axis the global mean temperature should be plotted onto
+
+    colour:^ (dict)
+      dictionary of colours to use for each timeseries
+
+    label:^ (str/bool)
+      name of the emissions timeseries
+
+    linestyle:^ (str)
+      linestyle to use for the timeseries. Default is '-' i.e. solid
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    fig: (matplotlib.figure.Figure)
+      the figure object
+
+    emmsax: (subplots.AxesSubplot)
+      emissions subplot
+
+    concax: (subplots.AxesSubplot)
+      CO_2 concentrations subplot
+
+    forcax: (subplots.AxesSubplot)
+      non-CO_2 forcing subplot
+
+    tempax: (subplots.AxesSubplot)
+      global mean temperature subplot
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+
+    """
+
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+    from math import ceil
+
+    # # ------------ THIRD PARTY ------------ # #
+    import numpy as np
+
+    from matplotlib import pyplot as plt
+    plt.style.use('seaborn-darkgrid')
+    plt.rcParams['figure.figsize'] = 16, 9
+    plt.rcParams['lines.linewidth'] = 1.5
+
+    font = {'weight' : 'normal',
           'size'   : 16}
 
-  plt.rc('font', **font)
+    plt.rc('font', **font)
 
-  # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
 
-  # # # ------------ CODE ------------ # # #
-  # # ------------ SORT OUT INPUT VARIABLES ------------ # #
-  pts = {'emms':emms,
+    # # # ------------ CODE ------------ # # #
+    # # ------------ SORT OUT INPUT VARIABLES ------------ # #
+    pts = {'emms':emms,
          'forc':forc,
          'conc':conc,
          'temp':temp}
-  
-  integ_len = 0
 
-  for j,var in enumerate(pts):
-    if type(pts[var]) == list:
-      pts[var] = np.array(pts[var])
-      integ_len = len(pts[var])
-    elif type(pts[var]) == np.ndarray:
-      integ_len = len(pts[var])
+    integ_len = 0
 
-  if integ_len == 0:
-    for name in pts:
-      print "{0}: {1}".format(name,type(pts[name]))
-    raise ValueError("Error: I can't work out which one of your input variables is a timeseries")
+    for j,var in enumerate(pts):
+        if type(pts[var]) == list:
+            pts[var] = np.array(pts[var])
+            integ_len = len(pts[var])
+        elif type(pts[var]) == np.ndarray:
+            integ_len = len(pts[var])
 
-  for j,var in enumerate(pts):
-    if type(pts[var]) == np.ndarray and len(pts[var]) == integ_len:
-      pass
-    elif type(pts[var]) == np.ndarray and len(pts[var]) != integ_len:
-      for name in pts:
-        print "{0}: {1}\nlength: {2}".format(name,
-                                             type(pts[name]),
-                                             len(pts[name]))
-      raise ValueError("Error: Your timeseries are not all the same length, I don't know what to do")
-    else:
-      if type(pts[var]) in [float,int]:
-        pts[var] = np.full(integ_len,pts[var])
-      else:
-        pts[var] = np.zeros(integ_len)
+    if integ_len == 0:
+        for name in pts:
+            print "{0}: {1}".format(name,type(pts[name]))
+        raise ValueError("Error: I can't work out which one of your input variables is a timeseries")
 
-  # # ------------ SORT OUT TIME VARIABLE ------------ # #
-  # state variables are valid at the end of the timestep so we
-  # go from 1 - integ_len + 1 rather than 0 - integ_len
-  time = np.arange(0.99,integ_len+0.99) + y_0
+    for j,var in enumerate(pts):
+        if type(pts[var]) == np.ndarray and len(pts[var]) == integ_len:
+            pass
+        elif type(pts[var]) == np.ndarray and len(pts[var]) != integ_len:
+            for name in pts:
+                print "{0}: {1}\nlength: {2}".format(name,
+                                                     type(pts[name]),
+                                                     len(pts[name]))
+            raise ValueError("Error: Your timeseries are not all the same length, I don't know what to do")
+        else:
+            if type(pts[var]) in [float,int]:
+                pts[var] = np.full(integ_len,pts[var])
+            else:
+                pts[var] = np.zeros(integ_len)
 
-  if not tuts:
-    tuts = 'units unknown'
+    # # ------------ SORT OUT TIME VARIABLE ------------ # #
+    # state variables are valid at the end of the timestep so we
+    # go from 1 - integ_len + 1 rather than 0 - integ_len
+    time = np.arange(0.99,integ_len+0.99) + y_0
 
-  # # ------------ PREPARE FLUX VARIABLES FOR PLOTTING  ------------ # #
-  # Flux variables are assumed constant throughout the timestep to make this appear 
-  # on the plot we have to do the following if there's fewer than 1000 timesteps
-  fmintsp = 1000
-  if integ_len < fmintsp:
-    # work out small you need to divide each timestep to get 1000 timesteps
-    div = ceil(fmintsp/integ_len)
-    ftime = np.arange(0,integ_len,1.0/div) + y_0
-    fluxes = ['emms','forc']
-    for f in fluxes:
-      tmp = []
-      for j,v in enumerate(pts[f]):
-        for i in range(0,int(div)):
-          tmp.append(v)
-      pts[f] = tmp
+    if not tuts:
+        tuts = 'units unknown'
+
+    # # ------------ PREPARE FLUX VARIABLES FOR PLOTTING  ------------ # #
+    # Flux variables are assumed constant throughout the timestep to make this appear 
+    # on the plot we have to do the following if there's fewer than 1000 timesteps
+    fmintsp = 1000
+    if integ_len < fmintsp:
+        # work out small you need to divide each timestep to get 1000 timesteps
+        div = ceil(fmintsp/integ_len)
+        ftime = np.arange(0,integ_len,1.0/div) + y_0
+        fluxes = ['emms','forc']
+        for f in fluxes:
+            tmp = []
+            for j,v in enumerate(pts[f]):
+                for i in range(0,int(div)):
+                    tmp.append(v)
+            pts[f] = tmp
             
-  else:
-    ftime = time - 0.5
+    else:
+        ftime = time - 0.5
     
-  if not infig:
-    fig = plt.figure()
-    emmsax = fig.add_subplot(221)
-    concax = fig.add_subplot(222)
-    forcax = fig.add_subplot(223)
-    tempax = fig.add_subplot(224)
-  else:
-    fig = infig
-    emmsax = emmsaxin
-    concax = concaxin
-    forcax = forcaxin
-    tempax = tempaxin
+    if not infig:
+        fig = plt.figure()
+        emmsax = fig.add_subplot(221)
+        concax = fig.add_subplot(222)
+        forcax = fig.add_subplot(223)
+        tempax = fig.add_subplot(224)
+    else:
+        fig = infig
+        emmsax = inemmsax
+        concax = inconcax
+        forcax = inforcax
+        tempax = intempax
 
-  emmsax.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
-  emmsax.set_ylabel('Emissions (GtC)')
-  if label is not None:
-    emmsax.legend(loc='best')
-  concax.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
-  concax.set_ylabel('CO$_2$ concentrations (ppm)')
-  concax.set_xlim(emmsax.get_xlim())
-  forcax.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
-  forcax.set_ylabel('Other radiative forcing (W.m$^{-2}$)')
-  forcax.set_xlabel('Time ({0})'.format(tuts))
-  tempax.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
-  tempax.set_ylabel('Temperature anomaly (K)')
-  tempax.set_xlabel(forcax.get_xlabel())
-  tempax.set_xlim(forcax.get_xlim())
-  fig.tight_layout()
+    emmsax.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
+    emmsax.set_ylabel('Emissions (GtC)')
+    if label is not None:
+        emmsax.legend(loc='best')
+    concax.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
+    concax.set_ylabel('CO$_2$ concentrations (ppm)')
+    concax.set_xlim(emmsax.get_xlim())
+    forcax.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
+    forcax.set_ylabel('Non-CO$_2$ radiative forcing (W.m$^{-2}$)')
+    forcax.set_xlabel('Time ({0})'.format(tuts))
+    tempax.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
+    tempax.set_ylabel('Temperature anomaly (K)')
+    tempax.set_xlabel(forcax.get_xlabel())
+    tempax.set_xlim(forcax.get_xlim())
+    fig.tight_layout()
 
-  return fig,emmsax,concax,forcax,tempax
+    return fig,emmsax,concax,forcax,tempax
