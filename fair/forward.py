@@ -81,40 +81,41 @@ def emissions_concentrations_sort(A,B,C,D,length):
 
 # Define three functions that give the Radiative forcing due to CH4 and N2O as per equations given in IPCC AR5 8.SM
 def f(M, N):
-	return 0.47 * np.log(1 + 2.01 * 10**(-5) * M * N * 0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52)) # see IPCC AR5 Table 8.SM.1
+    return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52)) # see IPCC AR5 Table 8.SM.1
 
+#Note that these two are identical, but need parameters in different places, so defining them separately is clearer, I think (and allows correct defaults)
 def RF_M(M, N, M_0, N_0, alp_m=0.036):
-	return alp_m * (np.sqrt(M+M_0) - np.sqrt(M_0)) - (f(M+M_0, N_0) - f(M_0, N_0))
+    return alp_m * (np.sqrt(M) - np.sqrt(M_0)) - (f(M, N_0) - f(M_0, N_0))
 
 def RF_N(M, N, M_0, N_0, alp_n=0.12):
-	return alp_n * (np.sqrt(N+N_0) - np.sqrt(N_0)) - (f(M_0, N+N_0) - f(M_0, N_0))
+    return alp_n * (np.sqrt(N) - np.sqrt(N_0)) - (f(M_0, N) - f(M_0, N_0))
 
 # Define the FAIR simple climate model function
 def fair_scm(tstep=1.0,
              emissions=False,
-			 M_emissions=False,
-			 N_emissions=False,
+             M_emissions=False,
+             N_emissions=False,
              other_rf=0.0,
              co2_concs=False,
-			 M_concs=False,
-			 N_concs=False,
+             M_concs=False,
+             N_concs=False,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
-			 tau_M=12.4,
-			 tau_N=121,
+             tau_M=12.4,
+             tau_N=121,
              r0=32.40,
              rC=0.019,
              rT=4.165,
              F_2x=3.74,
              C_0=278.0,
-			 M_0=722,
-			 N_0=270,
+             M_0=722,
+             N_0=270,
              ppm_gtc=2.123,
-			 ppb_TgM=2.838,
-			 ppb_TgN=7.787,
+             ppb_TgM=2.838,
+             ppb_TgN=7.787,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0],
              restart_out=False):
@@ -294,11 +295,11 @@ def fair_scm(tstep=1.0,
     if all(type(x) == bool for x in [M_emissions,N_emissions,M_concs,N_concs]):
         include_M_N = [False,False]
     elif any(type(x) != bool for x in [M_emissions,M_concs]):
-	    include_M_N = [True,False]
+        include_M_N = [True,False]
     elif any(type(x) != bool for x in [N_emissions,N_concs]):
-	    include_M_N = [False,True]
+        include_M_N = [False,True]
     else:
-	    include_M_N = [True,True]
+        include_M_N = [True,True]
 	
 	# here we check if FAIR is emissions driven, for now assuming if CO_2 is emissions driven, the other GHGs are as well
     if type(emissions) in [np.ndarray,list]:
@@ -313,7 +314,7 @@ def fair_scm(tstep=1.0,
     elif type(co2_concs) in [np.ndarray,list]:
         integ_len = len(co2_concs)
         conc_driven = True
-        [co2_concs,M_concs,N_concs,other_rf,integ_len] = emissions_concentrations_sort(co2_concs,M_concs,N_concs,other_rf,integ_len)
+        [co2_concs,M_concs,N_concs,other_rf] = emissions_concentrations_sort(co2_concs,M_concs,N_concs,other_rf,integ_len)
         # if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
             # raise ValueError("The concentrations and other_rf timeseries don't have the same length")
         # elif type(other_rf) in [int,float]:
@@ -350,8 +351,8 @@ def fair_scm(tstep=1.0,
     C_pre = np.sum(R_i_pre) + C_0
     T_j_pre = in_state[1]
     C_acc_pre = in_state[2]
-    M_pre = in_state[3]
-    N_pre = in_state[4]
+    M_pre = in_state[3] + M_0
+    N_pre = in_state[4] + N_0
 
     if conc_driven:
         C[0] = co2_concs[0]
@@ -378,10 +379,10 @@ def fair_scm(tstep=1.0,
 
         C[0] = np.sum(R_i[0]) + C_0
         
-        # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions
-        M[0] = M_pre*np.exp(-tstep/tau_M) + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM
+        # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
+        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM + M_0
         
-        N[0] = N_pre*np.exp(-tstep/tau_N) + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN
+        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN + N_0
 
         # Calculate the additional carbon uptake
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
@@ -423,10 +424,10 @@ def fair_scm(tstep=1.0,
           # Sum the boxes to get the total concentration anomaly
           C[x] = np.sum(R_i[x]) + C_0
           
-          # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions
-          M[x] = M[x-1]*np.exp(-tstep/tau_M) + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM
+          # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
+          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM + M_0
           
-          N[x] = N[x-1]*np.exp(-tstep/tau_N) + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN
+          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN + N_0
 
           # Calculate the additional carbon uptake
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
@@ -443,7 +444,7 @@ def fair_scm(tstep=1.0,
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T
+        return C, T, RF
 
 def plot_fair(emms,
               conc,
