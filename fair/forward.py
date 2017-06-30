@@ -62,13 +62,52 @@ def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
     iirf100_arr = alpha*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alpha)))))
     return iirf100_arr   -  targ_iirf100
 
-# define a function that: for 4 inputs and a length L:
-# leaves arrays as they are
-# converts scalar types into a array of length L, all elements the same scalar value (constant emissions or concentrations)
-# converts False types (ie. no argument given) into an array of length L of zeros
-# checks the all the final arrays have the same length and raises an error if not
-def emissions_concentrations_sort(A,B,C,D,length):
-    Arr = [A,B,C,D]
+# Define a function that edits our emission or concentration arrays as appropriate based on arguments given
+def emissions_concentrations_sort(Arr,
+                                  length):
+    """
+    Takes input unperturbed/ perturbed concentrations of CH4 and N2O 
+    and returns radiative forcing caused.
+
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    
+    Arr:^ (np.array/list/float/int/bool)
+      Array containing all gas emissions or concentrations 
+      and other radiative forcing
+      
+    length:^ (float)
+      length of the timeseries (Yr)
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    Returns an array containing the edited emissions or concentrations
+    and other radiative forcings as follows:
+    -leaves lists/arrays alone
+    -replaces int/float type with array at that constant value for length
+    -replaces False type with array of zeros of length
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+    
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
     for x in range(len(Arr)):
         if type(Arr[x]) in [int,float]:
             Arr[x] = np.full(length,Arr[x])
@@ -78,17 +117,73 @@ def emissions_concentrations_sort(A,B,C,D,length):
 	    raise ValueError("One or more of the emissions/concentrations given or other_rf timeseries doesn't have the same length")
     else:
 	    return Arr
+        
+    
 
-# Define three functions that give the Radiative forcing due to CH4 and N2O as per equations given in IPCC AR5 8.SM
-def f(M, N):
-    return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52)) # see IPCC AR5 Table 8.SM.1
+# Define a function that gives the Radiative forcing due to both CH4 and N2O as per equations given in IPCC AR5 8.SM
+def RF_M_N(M,
+           N,
+           M_0,
+           N_0,
+           alp_m=0.036,
+           alp_n=0.12):
+    """
+    Takes input unperturbed/ perturbed concentrations of CH4 and N2O 
+    and returns radiative forcing caused.
 
-#Note that these two are identical, but need parameters in different places, so defining them separately is clearer, I think (and allows correct defaults)
-def RF_M(M, N, M_0, N_0, alp_m=0.036):
-    return alp_m * (np.sqrt(M) - np.sqrt(M_0)) - (f(M, N_0) - f(M_0, N_0))
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    
+    M:^ (float)
+      Current CH4 concentration (ppbv)
+      
+    N:^ (float)
+      Current N2O concentration (ppbv)
+      
+    M_0:^ (float)
+      Unperturbed CH4 concentration (ppbv)
+      
+    M:^ (float)
+      Unperturbed N2O concentration (ppbv)
+      
+    alp_m:^ (float)
+      CH4 RF constant given in Myhre et al. (1998)
+      
+    alp_n:^ (float)
+      N2O RF constant given in Myhre et al. (1998)
 
-def RF_N(M, N, M_0, N_0, alp_n=0.12):
-    return alp_n * (np.sqrt(N) - np.sqrt(N_0)) - (f(M_0, N) - f(M_0, N_0))
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    Returns the radiative forcing due to CH4 if RF_M is called
+    Returns the radiative forcing due to N2O if RF_N is called
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+    
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+    
+    # first define a function used for both CH4 and N2O RF (see Myhre et al. 1998 as IPCC AR5 has typo) - purely to make code more readable
+    def f(M, N):
+        return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52)) # see IPCC AR5 Table 8.SM.1
+
+    return alp_m * (np.sqrt(M) - np.sqrt(M_0)) - (f(M, N_0) - f(M_0, N_0)) + alp_n * (np.sqrt(N) - np.sqrt(N_0)) - (f(M_0, N) - f(M_0, N_0))
 
 # Define the FAIR simple climate model function
 def fair_scm(tstep=1.0,
@@ -114,8 +209,8 @@ def fair_scm(tstep=1.0,
              M_0=722,
              N_0=270,
              ppm_gtc=2.123,
-             ppb_TgM=2.838,
-             ppb_TgN=7.787,
+             ppb_MtCH4=2.838,
+             ppb_MtN2O=7.787,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0],
              restart_out=False):
@@ -137,12 +232,12 @@ def fair_scm(tstep=1.0,
       aren't used.
 	
     M_emissions:^ (np.array/list/float/int/bool)
-      CH4 emissions timeseries (Tg/yr). If a scalar then emissions are 
+      CH4 emissions timeseries (MtCH4/yr). If a scalar then emissions are 
       assumed to be constant throughout the run. If false then CH4 emissions 
       aren't used.
 	  
     N_emissions:^ (np.array/list/float/int/bool)
-      N2O emissions timeseries (Tg/yr). If a scalar then emissions are 
+      N2O emissions timeseries (MtN2O/yr). If a scalar then emissions are 
       assumed to be constant throughout the run. If false then N2O emissions 
       aren't used.
 
@@ -212,11 +307,11 @@ def fair_scm(tstep=1.0,
     ppm_gtc:^ (float)
       ppmv to GtC conversion factor (GtC/ppmv)
 	  
-    ppb_TgM:^ (float)
-      ppbv to Tg of CH4 conversion factor (TgCH4/ppbv)
+    ppb_MtCH4:^ (float)
+      ppbv to Tg of CH4 conversion factor (MtCH4/ppbv)
 	  
-    ppb_TgN:^ (float)
-      ppbv to Tg of N2O conversion factor (TgN2O/ppbv)
+    ppb_MtN2O:^ (float)
+      ppbv to Tg of N2O conversion factor (MtN2O/ppbv)
 
     iirf100_max:^ (float)
       maximum allowed value of iIRF100 (keeps the model stable) (yrs)
@@ -290,44 +385,22 @@ def fair_scm(tstep=1.0,
     # the integ_len variable is used to store the length of our timeseries
     # by default FAIR is not concentration driven
     conc_driven=False
-    
-	# here we check if we want to include CH4 or N2O ie. if they are given as arguments in fair_scm
-    if all(type(x) == bool for x in [M_emissions,N_emissions,M_concs,N_concs]):
-        include_M_N = [False,False]
-    elif any(type(x) != bool for x in [M_emissions,M_concs]):
-        include_M_N = [True,False]
-    elif any(type(x) != bool for x in [N_emissions,N_concs]):
-        include_M_N = [False,True]
-    else:
-        include_M_N = [True,True]
 	
 	# here we check if FAIR is emissions driven, for now assuming if CO_2 is emissions driven, the other GHGs are as well
     if type(emissions) in [np.ndarray,list]:
         integ_len = len(emissions)
-        [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort(emissions,M_emissions,N_emissions,other_rf,integ_len)
-        # if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
-            # raise ValueError("The emissions and other_rf timeseries don't have the same length")
-        # elif type(other_rf) in [int,float]:
-            # other_rf = np.full(integ_len,other_rf)
+        [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
   
     # here we check if FAIR is concentration driven
     elif type(co2_concs) in [np.ndarray,list]:
         integ_len = len(co2_concs)
         conc_driven = True
-        [co2_concs,M_concs,N_concs,other_rf] = emissions_concentrations_sort(co2_concs,M_concs,N_concs,other_rf,integ_len)
-        # if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=integ_len):
-            # raise ValueError("The concentrations and other_rf timeseries don't have the same length")
-        # elif type(other_rf) in [int,float]:
-            # other_rf = np.full(integ_len,other_rf)
+        [co2_concs,M_concs,N_concs,other_rf] = emissions_concentrations_sort([co2_concs,M_concs,N_concs,other_rf],integ_len)
 
     # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
     elif type(other_rf) in [np.ndarray,list]:
         integ_len = len(other_rf)
-        [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort(emissions,M_emissions,N_emissions,other_rf,integ_len)
-        # if type(emissions) in [int,float]:
-            # emissions = np.full(integ_len,emissions)
-        # else:
-            # emissions = np.zeros(integ_len)
+        [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
 
     else:
         raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
@@ -380,16 +453,16 @@ def fair_scm(tstep=1.0,
         C[0] = np.sum(R_i[0]) + C_0
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
-        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM + M_0
+        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 + M_0
         
-        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN + N_0
+        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O + N_0
 
         # Calculate the additional carbon uptake
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
     # Calculate the radiative forcing using the previous timestep's CO2 concentration
 
-    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0] + RF_M(M_pre,N_pre,M_0,N_0) + RF_N(M_pre,N_pre,M_0,N_0)
+    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0] + RF_M_N(M_pre,N_pre,M_0,N_0)
 
     # Update the thermal response boxes
     T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
@@ -425,15 +498,15 @@ def fair_scm(tstep=1.0,
           C[x] = np.sum(R_i[x]) + C_0
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
-          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_TgM + M_0
+          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 + M_0
           
-          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_TgN + N_0
+          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O + N_0
 
           # Calculate the additional carbon uptake
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
         # Calculate the radiative forcing using the previous timestep's CO2 concentration
-        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x] + RF_M(M[x-1],N[x-1],M_0,N_0) + RF_N(M[x-1],N[x-1],M_0,N_0)
+        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x] + RF_M_N(M[x-1],N[x-1],M_0,N_0)
 
         # Update the thermal response boxes
         T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
@@ -444,7 +517,7 @@ def fair_scm(tstep=1.0,
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF
+        return C, T, RF, M, N
 
 def plot_fair(emms,
               conc,
