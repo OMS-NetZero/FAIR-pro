@@ -520,14 +520,22 @@ def fair_scm(tstep=1.0,
         return C, T, RF, M, N
 
 def plot_fair(emms,
+              M_emms,
+              N_emms,
               conc,
+              M_conc,
+              N_conc,
               forc,
               temp,
               y_0=0,
               tuts=False,
               infig=False,
               inemmsax=None,
+              inM_emmsax=None,
+              inN_emmsax=None,
               inconcax=None,
+              inM_concax=None,
+              inN_concax=None,
               inforcax=None,
               intempax=None,
               colour={'emms':'black',
@@ -550,9 +558,21 @@ def plot_fair(emms,
 
     emms: (np.array/list)
       CO_2 emissions timeseries (GtC)
+    
+    M_emms: (np.array/list)
+      CH_4 emissions timeseries (MtCH4)
 
+    N_emms: (np.array/list)
+      N_2O emissions timeseries (MtN2O)
+      
     conc: (np.array/list)
       CO_2 concentrations timeseries (ppmv)
+      
+    M_conc: (np.array/list)
+      CH_4 concentrations timeseries (ppbv)
+      
+    N_conc: (np.array/list)
+      N_2O concentrations timeseries (ppbv)
 
     forc: (np.array/list)
       Non-CO_2 forcing timeseries (W/m^2)
@@ -570,10 +590,22 @@ def plot_fair(emms,
       pre-existing figure we should plot onto
 
     inemmsax:^ (subplots.AxesSubplot)
-      pre-existing axis the emissions should be plotted onto
+      pre-existing axis the CO_2 emissions should be plotted onto
+      
+    inM_emmsax:^ (subplots.AxesSubplot)
+      pre-existing axis the CH_4 emissions should be plotted onto
+      
+    inN_emmsax:^ (subplots.AxesSubplot)
+      pre-existing axis the N_2O emissions should be plotted onto
 
     inconcax:^ (subplots.AxesSubplot)
       pre-existing axis the CO_2 concentrations should be plotted onto
+      
+    inM_concax:^ (subplots.AxesSubplot)
+      pre-existing axis the CH_4 concentrations should be plotted onto
+      
+    inN_concax:^ (subplots.AxesSubplot)
+      pre-existing axis the N_2O concentrations should be plotted onto
 
     inforcax:^ (subplots.AxesSubplot)
       pre-existing axis the non-CO_2 forcing should be plotted onto
@@ -597,10 +629,22 @@ def plot_fair(emms,
       the figure object
 
     emmsax: (subplots.AxesSubplot)
-      emissions subplot
+      CO_2 emissions subplot
 
     concax: (subplots.AxesSubplot)
       CO_2 concentrations subplot
+      
+    M_emmsax: (subplots.AxesSubplot)
+      CH_4 emissions subplot
+
+    M_concax: (subplots.AxesSubplot)
+      CH_4 concentrations subplot
+      
+    N_emmsax: (subplots.AxesSubplot)
+      N_2O emissions subplot
+
+    N_concax: (subplots.AxesSubplot)
+      N_2O concentrations subplot
 
     forcax: (subplots.AxesSubplot)
       non-CO_2 forcing subplot
@@ -642,8 +686,12 @@ def plot_fair(emms,
     # # # ------------ CODE ------------ # # #
     # # ------------ SORT OUT INPUT VARIABLES ------------ # #
     pts = {'emms':emms,
+         'M_emms':M_emms,
+         'N_emms':N_emms,
          'forc':forc,
          'conc':conc,
+         'M_conc':M_conc,
+         'N_conc':N_conc,
          'temp':temp}
 
     integ_len = 0
@@ -691,7 +739,7 @@ def plot_fair(emms,
         # work out small you need to divide each timestep to get 1000 timesteps
         div = ceil(fmintsp/integ_len)
         ftime = np.arange(0,integ_len,1.0/div) + y_0
-        fluxes = ['emms','forc']
+        fluxes = ['emms','M_emms','N_emms','forc']
         for f in fluxes:
             tmp = []
             for j,v in enumerate(pts[f]):
@@ -703,25 +751,43 @@ def plot_fair(emms,
         ftime = time - 0.5
     
     if not infig:
-        fig = plt.figure()
-        emmsax = fig.add_subplot(221)
-        concax = fig.add_subplot(222)
-        forcax = fig.add_subplot(223)
-        tempax = fig.add_subplot(224)
+        fig = plt.figure(figsize=(16,18))
+        emmsax = fig.add_subplot(421)
+        concax = fig.add_subplot(422)
+        M_emmsax = fig.add_subplot(423)
+        M_concax = fig.add_subplot(424)
+        N_emmsax = fig.add_subplot(425)
+        N_concax = fig.add_subplot(426)
+        forcax = fig.add_subplot(427)
+        tempax = fig.add_subplot(428)
     else:
         fig = infig
         emmsax = inemmsax
         concax = inconcax
+        M_emmsax = inM_emmsax
+        M_concax = inM_concax
+        N_emmsax = inN_emmsax
+        N_concax = inN_concax
         forcax = inforcax
         tempax = intempax
 
     emmsax.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
-    emmsax.set_ylabel('Emissions (GtC)')
+    emmsax.set_ylabel('CO$_2$ emissions (GtC)')
     if label is not None:
         emmsax.legend(loc='best')
     concax.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
     concax.set_ylabel('CO$_2$ concentrations (ppm)')
     concax.set_xlim(emmsax.get_xlim())
+    M_emmsax.plot(ftime,pts['M_emms'],color=colour['emms'],ls=linestyle)
+    M_emmsax.set_ylabel('CH$_4$ emissions (MtCH$_4$)')
+    M_concax.plot(time,pts['M_conc'],color=colour['conc'],ls=linestyle)
+    M_concax.set_ylabel('CH$_4$ concentrations (ppb)')
+    M_concax.set_xlim(M_emmsax.get_xlim())
+    N_emmsax.plot(ftime,pts['N_emms'],color=colour['emms'],ls=linestyle)
+    N_emmsax.set_ylabel('N$_2$O emissions (MtN$_2$O)')
+    N_concax.plot(time,pts['N_conc'],color=colour['conc'],ls=linestyle)
+    N_concax.set_ylabel('N$_2$O concentrations (ppb)')
+    N_concax.set_xlim(N_emmsax.get_xlim())
     forcax.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
     forcax.set_ylabel('Non-CO$_2$ radiative forcing (W.m$^{-2}$)')
     forcax.set_xlabel('Time ({0})'.format(tuts))
@@ -731,4 +797,4 @@ def plot_fair(emms,
     tempax.set_xlim(forcax.get_xlim())
     fig.tight_layout()
 
-    return fig,emmsax,concax,forcax,tempax
+    return fig,emmsax,concax,M_emmsax,M_concax,N_emmsax,N_concax,forcax,tempax
