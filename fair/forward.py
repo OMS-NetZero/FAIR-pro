@@ -187,18 +187,18 @@ def fair_scm(tstep=1.0,
              emissions=False,
              M_emissions=False,
              N_emissions=False,
-             MK_gas_emissions=False,
+             MK_gas_emissions_def=[False,False,False,False,False,False],
              other_rf=0.0,
              co2_concs=False,
              M_concs=False,
              N_concs=False,
-             MK_gas_concs=False,
+             MK_gas_concs_def=[False,False,False,False,False,False],
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
-             tau_M=12.4,
+             tau_M=9.25,
              tau_N=121.0,
              tau_MK_gas=np.array([45.0,100.0,85.0,11.9,13.4,26.0]),
              r0=32.40,
@@ -244,7 +244,7 @@ def fair_scm(tstep=1.0,
       assumed to be constant throughout the run. If false then N2O emissions 
       aren't used.
       
-    MK_gas_emissions:^ (np.array/list/bool)
+    MK_gas_emissions:^ (np.array/list)
       2D array containing selected Montreal/Kyoto gas emissions 
       timeseries (KtX/yr). If any element within scalar then emissions are 
       assumed to be constant throughout the run for that species. 
@@ -269,7 +269,7 @@ def fair_scm(tstep=1.0,
       Atmospheric N2O concentrations timeseries (ppbv). If N_emissions are 
       supplied then N_concs is not used.
       
-    MK_gas_concs:^ (np.array/list/bool)
+    MK_gas_concs:^ (np.array/list)
       2D array containing selected Montreal/Kyoto gas concentrations 
       timeseries (ppbv). If MK_gas_emissions are supplied then NK_gas_concs 
       is not used. The gases (currently) used are: 
@@ -437,13 +437,15 @@ def fair_scm(tstep=1.0,
     # the integ_len variable is used to store the length of our timeseries
     # by default FAIR is not concentration driven
     conc_driven=False
-	
+    MK_gas_emissions = MK_gas_emissions_def[:]
+    MK_gas_concs = MK_gas_concs_def[:]
+    
 	# here we check if FAIR is emissions driven, for now assuming if CO_2 is emissions driven, the other GHGs are as well
     if type(emissions) in [np.ndarray,list]:
         integ_len = len(emissions)
         [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
         MK_gas_emissions = np.swapaxes(emissions_concentrations_sort(MK_gas_emissions,integ_len),0,1)   # Swapaxes to get time/emissions in correct dimensions
-  
+
     # here we check if FAIR is concentration driven
     elif type(co2_concs) in [np.ndarray,list]:
         integ_len = len(co2_concs)
