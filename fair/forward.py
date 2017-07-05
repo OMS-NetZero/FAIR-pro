@@ -117,8 +117,6 @@ def emissions_concentrations_sort(Arr,
 	    raise ValueError("One or more of the emissions/concentrations given or other_rf timeseries doesn't have the same length")
     else:
 	    return Arr
-        
-    
 
 # Define a function that gives the Radiative forcing due to both CH4 and N2O as per equations given in IPCC AR5 8.SM
 def RF_M_N(M,
@@ -156,8 +154,7 @@ def RF_M_N(M,
 
     # # ------------ RETURN VALUE ------------ # #
     sublime snippet for variable description in header is 'hvardesc'
-    Returns the radiative forcing due to CH4 if RF_M is called
-    Returns the radiative forcing due to N2O if RF_N is called
+    Returns the radiative forcing due to CH4 and N2O
 
     # # ------------ SIDE EFFECTS ------------ # #
     document side effects here
@@ -190,29 +187,35 @@ def fair_scm(tstep=1.0,
              emissions=False,
              M_emissions=False,
              N_emissions=False,
+             MK_gas_emissions=False,
              other_rf=0.0,
              co2_concs=False,
              M_concs=False,
              N_concs=False,
+             MK_gas_concs=False,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
              tau_M=12.4,
-             tau_N=121,
+             tau_N=121.0,
+             tau_MK_gas=np.array([45.0,100.0,85.0,11.9,13.4,26.0]),
              r0=32.40,
              rC=0.019,
              rT=4.165,
              F_2x=3.74,
+             MK_gas_RE=np.array([0.26,0.32,0.30,0.21,0.16,0.17]),
              C_0=278.0,
-             M_0=722,
-             N_0=270,
+             M_0=722.0,
+             N_0=270.0,
+             MK_gas_0=np.zeros(6),
              ppm_gtc=2.123,
              ppb_MtCH4=2.838,
              ppb_MtN2O=7.787,
+             ppb_KtX=np.array([137.37,120.91,187.38,86.47,102.03,153.82])*10**(3)/5.6523,
              iirf100_max=97.0,
-             in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0],
+             in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0,0.0,0.0,0.0,0.0,0.0],
              restart_out=False):
     """
     Run fair forward calculation
@@ -240,6 +243,15 @@ def fair_scm(tstep=1.0,
       N2O emissions timeseries (MtN2O/yr). If a scalar then emissions are 
       assumed to be constant throughout the run. If false then N2O emissions 
       aren't used.
+      
+    MK_gas_emissions:^ (np.array/list/bool)
+      2D array containing selected Montreal/Kyoto gas emissions 
+      timeseries (KtX/yr). If any element within scalar then emissions are 
+      assumed to be constant throughout the run for that species. 
+      If false then these emissions aren't used. The gases (currently) used are: 
+      [CFC-11,CFC-12,CFC-113,HCFC-22,HCFC-134,CCl4] in that order. The array
+      must be in the format: [[CFC-11(0),CFC-11(1),...],[CFC-12(0),...],...]
+      ie. gas species 0th dimension, timeseries 1st dimension.
 
     other_rf:^ (np.array/list/float/int)
       Non-CO_2 radiative forcing timeseries (W/m^2). If a scalar then other_rf 
@@ -256,6 +268,14 @@ def fair_scm(tstep=1.0,
     N_concs:^ (np.array/list/bool)
       Atmospheric N2O concentrations timeseries (ppbv). If N_emissions are 
       supplied then N_concs is not used.
+      
+    MK_gas_concs:^ (np.array/list/bool)
+      2D array containing selected Montreal/Kyoto gas concentrations 
+      timeseries (ppbv). If MK_gas_emissions are supplied then NK_gas_concs 
+      is not used. The gases (currently) used are: 
+      [CFC-11,CFC-12,CFC-113,HCFC-22,HCFC-134,CCl4] in that order. The array
+      must be in the format: [[CFC-11(0),CFC-11(1),...],[CFC-12(0),...],...]
+      ie. gas species 0th dimension, timeseries 1st dimension.
 
     q:^ (np.array)
       response of each thermal box to radiative forcing (K/(W/m^2)). 
@@ -281,6 +301,9 @@ def fair_scm(tstep=1.0,
 	  
     tau_N:^ (float/int)
       lifetime of atmospheric N2O (yrs) (value used for IPCC AR5 metrics)
+      
+    tau_MK_gas:^ (list/np.array)
+      lifetimes of selected gases. Order as per MK_gas_emissions (yrs)
 
     r0:^ (float)
       pre-industrial 100-year integrated impulse response (iIRF100) (yrs)
@@ -294,6 +317,10 @@ def fair_scm(tstep=1.0,
     F_2x:^ (float)
       radiative forcing due to a doubling of atmospheric CO_2 concentrations 
       (W/m^2)
+      
+    MK_gas_RE:^ (np.array/list)
+      array containing radiative efficiency data for selected Montreal/Kyoto 
+      gases, in same order as MK_gas_emissions (W/m^2 ppb^-1)
 
     C_0:^ (float)
       pre-industrial atmospheric CO_2 concentrations (ppmv)
@@ -303,15 +330,23 @@ def fair_scm(tstep=1.0,
 	  
     N_0:^ (float)
       pre-industrial atmospheric N2O concentrations (ppbv)
+      
+    MK_gas_0:^ (np.array/list)
+      pre-industrial atmospheric concentrations of selected Montreal/Kyoto
+      gases (ppbv), order as MK_gas_emissions
 
     ppm_gtc:^ (float)
       ppmv to GtC conversion factor (GtC/ppmv)
 	  
     ppb_MtCH4:^ (float)
-      ppbv to Tg of CH4 conversion factor (MtCH4/ppbv)
+      ppbv to Mt of CH4 conversion factor (MtCH4/ppbv)
 	  
     ppb_MtN2O:^ (float)
-      ppbv to Tg of N2O conversion factor (MtN2O/ppbv)
+      ppbv to Mt of N2O conversion factor (MtN2O/ppbv)
+      
+    ppb_KtX:^ (np.array,list)
+      ppbv to Kt of selected Montreal/Kyoto gas conversion factor (KtX/ppbv),
+      order same as MK_gas_emissions.
 
     iirf100_max:^ (float)
       maximum allowed value of iIRF100 (keeps the model stable) (yrs)
@@ -328,6 +363,9 @@ def fair_scm(tstep=1.0,
           CH4 concentration (ppbv)
         [4]: (float)
           N2O concentration (ppbv)
+          
+        [5]: (array)
+          Montreal/Kyoto gas concentrations (ppbv)
 
     restart_out:^ (bool)
       whether to return the final state of the climate system or not
@@ -342,6 +380,20 @@ def fair_scm(tstep=1.0,
 
     T: (np.array)
       timeseries of global mean temperatures (K)
+      
+    RF:(np.array)
+      timeseries of total radiative forcing (W/m^2)
+      
+    M:(np.array)
+      timeseries of atmospheric CH4 concentrations (ppbv)
+      
+    N: (np.array)
+      timeseries of atmospheric N2O concentrations (ppbv)
+      
+    MK_gas: (np.ndarray)
+      2D array containing concentration timeseries of the Montreal/Kyoto
+      gases included (ppbv) in the order:
+      [CFC-11,CFC-12,CFC-113,HCFC-22,HCFC-134,CCl4]
 
     # ------------ IF RESTART_OUT == TRUE ------------ #
     As above with the addition of a tuple with elements
@@ -390,17 +442,20 @@ def fair_scm(tstep=1.0,
     if type(emissions) in [np.ndarray,list]:
         integ_len = len(emissions)
         [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
+        MK_gas_emissions = np.swapaxes(emissions_concentrations_sort(MK_gas_emissions,integ_len),0,1)   # Swapaxes to get time/emissions in correct dimensions
   
     # here we check if FAIR is concentration driven
     elif type(co2_concs) in [np.ndarray,list]:
         integ_len = len(co2_concs)
         conc_driven = True
         [co2_concs,M_concs,N_concs,other_rf] = emissions_concentrations_sort([co2_concs,M_concs,N_concs,other_rf],integ_len)
+        MK_gas_concs = np.swapaxes(emissions_concentrations_sort(MK_gas_concs,integ_len),0,1)
 
     # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
     elif type(other_rf) in [np.ndarray,list]:
         integ_len = len(other_rf)
         [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
+        MK_gas_emissions = np.swapaxes(emissions_concentrations_sort(MK_gas_emissions,integ_len),0,1)
 
     else:
         raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
@@ -414,6 +469,7 @@ def fair_scm(tstep=1.0,
     C = np.zeros(integ_len)
     M = np.zeros(integ_len)
     N = np.zeros(integ_len)
+    MK_gas = np.zeros((integ_len,6))
     
     thermal_boxes_shape = (integ_len,2)
     T_j = np.zeros(thermal_boxes_shape)
@@ -426,11 +482,13 @@ def fair_scm(tstep=1.0,
     C_acc_pre = in_state[2]
     M_pre = in_state[3] + M_0
     N_pre = in_state[4] + N_0
+    MK_gas_pre = in_state[5] + MK_gas_0
 
     if conc_driven:
         C[0] = co2_concs[0]
         M[0] = M_concs[0]
         N[0] = N_concs[0]
+        MK_gas[0] = MK_gas_concs[0]
   
     else:
         # Calculate the parametrised iIRF and check if it is over the maximum 
@@ -453,16 +511,24 @@ def fair_scm(tstep=1.0,
         C[0] = np.sum(R_i[0]) + C_0
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
-        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 + M_0
+        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) \
+                + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 \
+                + M_0
         
-        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O + N_0
+        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) \
+                + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O \
+                + N_0
+        
+        MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
+                     + MK_gas_emissions[0]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
+                     + MK_gas_0
 
         # Calculate the additional carbon uptake
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
-    # Calculate the radiative forcing using the previous timestep's CO2 concentration
+    # Calculate the radiative forcing using the previous timestep's CO2 concentration, CH4 and N2O concentration, and MK gas concentration using radiative efficiency formula
 
-    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0] + RF_M_N(M_pre,N_pre,M_0,N_0)
+    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0] + RF_M_N(M_pre,N_pre,M_0,N_0) + np.sum(MK_gas_RE*(MK_gas_pre-MK_gas_0))
 
     # Update the thermal response boxes
     T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
@@ -476,6 +542,7 @@ def fair_scm(tstep=1.0,
           C[x] = co2_concs[x]
           M[x] = M_concs[x]
           N[x] = N_concs[x]
+          MK_gas[x] = MK_gas_concs[x]
         
         else:
           # Calculate the parametrised iIRF and check if it is over the maximum 
@@ -498,15 +565,23 @@ def fair_scm(tstep=1.0,
           C[x] = np.sum(R_i[x]) + C_0
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
-          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 + M_0
+          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) \
+                  + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 \
+                  + M_0
           
-          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O + N_0
+          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) \
+                  + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O \
+                  + N_0
+                  
+          MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
+                     + MK_gas_emissions[x]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
+                     + MK_gas_0
 
           # Calculate the additional carbon uptake
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
         # Calculate the radiative forcing using the previous timestep's CO2 concentration
-        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x] + RF_M_N(M[x-1],N[x-1],M_0,N_0)
+        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x] + RF_M_N(M[x-1],N[x-1],M_0,N_0) + np.sum(MK_gas_RE*(MK_gas[x-1]-MK_gas_0))
 
         # Update the thermal response boxes
         T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
@@ -517,7 +592,8 @@ def fair_scm(tstep=1.0,
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF, M, N
+        return C, T, RF, M, N, MK_gas.swapaxes(0,1) # Swapaxes back to get separate species timeseries as outputs
+
 
 def plot_fair(emms,
               M_emms,
@@ -789,7 +865,7 @@ def plot_fair(emms,
     N_concax.set_ylabel('N$_2$O concentrations (ppb)')
     N_concax.set_xlim(N_emmsax.get_xlim())
     forcax.plot(ftime,pts['forc'],color=colour['forc'],ls=linestyle)
-    forcax.set_ylabel('Non-CO$_2$ radiative forcing (W.m$^{-2}$)')
+    forcax.set_ylabel('Non-CO$_2$/CH$_4$/N$_2$O radiative forcing (W.m$^{-2}$)')
     forcax.set_xlabel('Time ({0})'.format(tuts))
     tempax.plot(time,pts['temp'],color=colour['temp'],ls=linestyle)
     tempax.set_ylabel('Temperature anomaly (K)')
