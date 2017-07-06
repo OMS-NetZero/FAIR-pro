@@ -25,3 +25,8 @@ index.py
 *.png
 *.pdf
 exercises-figures*
+fair/GCP_data/ch4.wk1
+fair/GCP_data/ch4_emms.txt
+*.xlsx
+*.xls
+fair/GCP_data/ch4_annmean_gl_conc.txt

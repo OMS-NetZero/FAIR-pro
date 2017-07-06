@@ -118,16 +118,17 @@ def emissions_concentrations_sort(Arr,
     else:
 	    return Arr
 
-# Define a function that gives the Radiative forcing due to both CH4 and N2O as per equations given in IPCC AR5 8.SM
-def RF_M_N(M,
-           N,
-           M_0,
-           N_0,
-           alp_m=0.036,
-           alp_n=0.12):
+# Define a function that gives the Radiative forcing due to CH4 as per Etminan et al. 2016, table 1
+def RF_M(M,
+         N,
+         M_0,
+         N_0,
+         a3=-1.3*10**(-6),
+         b3=-8.2*10**(-6),
+         K=0.043):
     """
     Takes input unperturbed/ perturbed concentrations of CH4 and N2O 
-    and returns radiative forcing caused.
+    and returns radiative forcing caused by CH4
 
     # # ------------ ARGUMENTS ------------ # #
     sublime snippet for variable description in header is 'hvardesc'
@@ -144,17 +145,101 @@ def RF_M_N(M,
     M:^ (float)
       Unperturbed N2O concentration (ppbv)
       
-    alp_m:^ (float)
-      CH4 RF constant given in Myhre et al. (1998)
+    a3:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
       
-    alp_n:^ (float)
-      N2O RF constant given in Myhre et al. (1998)
+    b3:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
+      
+    K:^ (float)
+      constant term given in Etminan et al. 2016.
 
     ^ => Keyword argument
 
     # # ------------ RETURN VALUE ------------ # #
     sublime snippet for variable description in header is 'hvardesc'
-    Returns the radiative forcing due to CH4 and N2O
+    Returns the radiative forcing due to CH4
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+    
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+        
+    return (a3*np.mean([M,M_0]) + b3*np.mean([N,N_0]) + K) * (np.sqrt(M) - np.sqrt(M_0))
+    
+# Define a function that gives the Radiative forcing due to N2O as per Etminan et al. 2016, table 1
+def RF_N(C,
+         M,
+         N,
+         C_0,
+         M_0,
+         N_0,
+         a2=-8.0*10**(-6),
+         b2=4.2*10**(-6),
+         c2=-4.9*10**(-6),
+         K=0.117):
+    """
+    Takes input unperturbed/ perturbed concentrations of CO2, CH4, N2O 
+    and returns radiative forcing caused by N2O
+
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    
+    C:^ (float)
+      Current CO2 concentration (ppbv)
+    
+    M:^ (float)
+      Current CH4 concentration (ppbv)
+      
+    N:^ (float)
+      Current N2O concentration (ppbv)
+    
+    C_0:^ (float)
+      Unperturbed CO2 concentration (ppbv)
+    
+    M_0:^ (float)
+      Unperturbed CH4 concentration (ppbv)
+      
+    M:^ (float)
+      Unperturbed N2O concentration (ppbv)
+      
+    a2:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
+      
+    b2:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
+      
+    c2:^ (float)
+      constant given given in Etminan et al. 2016, notation as
+      used there
+      
+    K:^ (float)
+      Constant term as in Etminan et al. 2016.
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    Returns the radiative forcing due to N2O
 
     # # ------------ SIDE EFFECTS ------------ # #
     document side effects here
@@ -176,11 +261,132 @@ def RF_M_N(M,
 
     # # # ------------ CODE ------------ # # #
     
-    # first define a function used for both CH4 and N2O RF (see Myhre et al. 1998 as IPCC AR5 has typo) - purely to make code more readable
-    def f(M, N):
-        return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52)) # see IPCC AR5 Table 8.SM.1
+    return (a2*np.mean([C,C_0]) + b2*np.mean([N,N_0]) + c2*np.mean([M,M_0]) + K) * (np.sqrt(N) - np.sqrt(N_0))
+    
+# Define a function that gives the Radiative forcing due to N2O as per Etminan et al. 2016, table 1
+def RF_C(C,
+         N,
+         C_0,
+         N_0,
+         a1=-2.4*10**(-7),
+         b1=7.2*10**(-4),
+         c1=-2.1*10**(-4),
+         K=5.36):
+    """
+    Takes input unperturbed/ perturbed concentrations of CO2, N2O, CH4 
+    and returns radiative forcing caused by CO2
 
-    return alp_m * (np.sqrt(M) - np.sqrt(M_0)) - (f(M, N_0) - f(M_0, N_0)) + alp_n * (np.sqrt(N) - np.sqrt(N_0)) - (f(M_0, N) - f(M_0, N_0))
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    
+    C:^ (float)
+      Current CO2 concentration (ppmv)
+    
+    M:^ (float)
+      Current CH4 concentration (ppmv)
+      
+    N:^ (float)
+      Current N2O concentration (ppbv)
+    
+    C_0:^ (float)
+      Unperturbed CO2 concentration (ppbv)
+    
+    M_0:^ (float)
+      Unperturbed CH4 concentration (ppbv)
+      
+    M:^ (float)
+      Unperturbed N2O concentration (ppbv)
+      
+    a2:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
+      
+    b2:^ (float)
+      constant given in Etminan et al. 2016, notation as 
+      used there
+      
+    c2:^ (float)
+      constant given given in Etminan et al. 2016, notation as
+      used there
+      
+    K:^ (float)
+      Constant term as in Etminan et al. 2016.
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    Returns the radiative forcing due to CO2
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+    
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+    
+    return (a1*(C-C_0)**(2) + b1*abs(C-C_0) + c1*np.mean([N,N_0]) + K) * np.log(C/C_0)
+
+# Define a function that returns the radiative forcing due to any other trace gases not considered explicitly (eg. CFC-11, CFC12, HFC134a etc.)
+def RF_other_gases(conc,
+                   conc_0,
+                   RE):
+    """
+    Takes input unperturbed/ perturbed concentrations of any other trace gas 
+    and returns radiative forcing caused.
+
+    # # ------------ ARGUMENTS ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    
+    conc:^ (float/np.array)
+      Current gas concentration (ppbv)
+    
+    conc_0:^ (float/np.array)
+      Unperturbed gas concentration (ppbv)
+      
+    RE:^ (float/np.array)
+      radiative efficiency of the gas species (W/m^2(ppbv)^-1)
+
+    ^ => Keyword argument
+
+    # # ------------ RETURN VALUE ------------ # #
+    sublime snippet for variable description in header is 'hvardesc'
+    Returns the radiative forcing due the gas
+
+    # # ------------ SIDE EFFECTS ------------ # #
+    document side effects here
+
+    # # ------------ EXCEPTIONS ------------ # #
+    sublime snippet for exception description in header is 'hexcdesc'
+
+    # # ------------ RESTRICTIONS ------------ # #
+    Document any restrictions on when the function can be called
+    """
+    
+    # One line break before anything else
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+    
+    return RE*(conc-conc_0)
 
 # Define the FAIR simple climate model function
 def fair_scm(tstep=1.0,
@@ -200,7 +406,7 @@ def fair_scm(tstep=1.0,
              tau=np.array([1000000,394.4,36.54,4.304]),
              tau_M=9.25,
              tau_N=121.0,
-             tau_MK_gas=np.array([45.0,100.0,85.0,11.9,13.4,26.0]),
+             tau_MK_gas=np.array([57.0,143.0,118.0,12.2,13.9,31.3]),
              r0=32.40,
              rC=0.019,
              rT=4.165,
@@ -421,6 +627,7 @@ def fair_scm(tstep=1.0,
     # # ------------ THIRD PARTY ------------ # #
     import numpy as np
     from scipy.optimize import root
+    import pandas as pd
 
     # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
 
@@ -441,10 +648,11 @@ def fair_scm(tstep=1.0,
     MK_gas_concs = MK_gas_concs_def[:]
     
 	# here we check if FAIR is emissions driven, for now assuming if CO_2 is emissions driven, the other GHGs are as well
+    # swapaxes is needed for MK_gas_emissions since the following code needs it to be a format with time down, whereas the input has time across
     if type(emissions) in [np.ndarray,list]:
         integ_len = len(emissions)
         [emissions,M_emissions,N_emissions,other_rf] = emissions_concentrations_sort([emissions,M_emissions,N_emissions,other_rf],integ_len)
-        MK_gas_emissions = np.swapaxes(emissions_concentrations_sort(MK_gas_emissions,integ_len),0,1)   # Swapaxes to get time/emissions in correct dimensions
+        MK_gas_emissions = np.swapaxes(emissions_concentrations_sort(MK_gas_emissions,integ_len),0,1)   
 
     # here we check if FAIR is concentration driven
     elif type(co2_concs) in [np.ndarray,list]:
@@ -476,6 +684,11 @@ def fair_scm(tstep=1.0,
     thermal_boxes_shape = (integ_len,2)
     T_j = np.zeros(thermal_boxes_shape)
     T = np.zeros(integ_len)
+    
+    co2_RF = np.zeros(integ_len)
+    M_RF = np.zeros(integ_len)
+    N_RF = np.zeros(integ_len)
+    MK_gas_RF = np.zeros((integ_len,6))
 
     # # # ------------ FIRST TIMESTEP ------------ # # #
     R_i_pre = in_state[0]
@@ -491,7 +704,7 @@ def fair_scm(tstep=1.0,
         M[0] = M_concs[0]
         N[0] = N_concs[0]
         MK_gas[0] = MK_gas_concs[0]
-  
+
     else:
         # Calculate the parametrised iIRF and check if it is over the maximum 
         # allowed value
@@ -528,9 +741,13 @@ def fair_scm(tstep=1.0,
         # Calculate the additional carbon uptake
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
-    # Calculate the radiative forcing using the previous timestep's CO2 concentration, CH4 and N2O concentration, and MK gas concentration using radiative efficiency formula
-
-    RF[0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[0] + RF_M_N(M_pre,N_pre,M_0,N_0) + np.sum(MK_gas_RE*(MK_gas_pre-MK_gas_0))
+    # Calculate the radiative forcing due to each gas, storing each in a separate array, then sum them to obtain the total RF
+    co2_RF[0] = RF_C(C_pre,N_pre,C_0,N_0)
+    M_RF[0] = RF_M(M_pre,N_pre,M_0,N_0)
+    N_RF[0] = RF_N(C_pre,M_pre,N_pre,C_0,M_0,N_0)
+    MK_gas_RF[0] = RF_other_gases(MK_gas_pre,MK_gas_0,MK_gas_RE)
+    
+    RF[0] = co2_RF[0] + M_RF[0] + N_RF[0] + np.sum(MK_gas_RF[0]) + other_rf[0]
 
     # Update the thermal response boxes
     T_j[0] = RF[0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
@@ -582,19 +799,44 @@ def fair_scm(tstep=1.0,
           # Calculate the additional carbon uptake
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
-        # Calculate the radiative forcing using the previous timestep's CO2 concentration
-        RF[x] = (F_2x/np.log(2.)) * np.log((C[x-1]) /C_0) + other_rf[x] + RF_M_N(M[x-1],N[x-1],M_0,N_0) + np.sum(MK_gas_RE*(MK_gas[x-1]-MK_gas_0))
-
+        # Calculate the individual and total radiative forcing using the previous timestep's gas concentrations
+        co2_RF[x] = RF_C(C[x-1],N[x-1],C_0,N_0)
+        M_RF[x] = RF_M(M[x-1],N[x-1],M_0,N_0)
+        N_RF[x] = RF_N(C[x-1],M[x-1],N[x-1],C_0,M_0,N_0)
+        MK_gas_RF[x] = RF_other_gases(MK_gas[x-1],MK_gas_0,MK_gas_RE)
+    
+        RF[x] = co2_RF[x] + M_RF[x] + N_RF[x] + np.sum(MK_gas_RF[x]) + other_rf[x]
+        
         # Update the thermal response boxes
         T_j[x] = T_j[x-1]*np.exp(-tstep/d) + RF[x,np.newaxis]*q*(1-np.exp(-tstep/d))
         
         # Sum the thermal response boxes to get the total temperature anomaly
         T[x] = np.sum(T_j[x])
 
+    # Now we gather together all the relevant data such that we can output it all in a panda Panel (3D Dataframe)- using swapaxes to ensure the output is in the format we want
+    MK_gas = MK_gas.swapaxes(0,1)
+    MK_gas_emissions = MK_gas_emissions.swapaxes(0,1)
+    MK_gas_RF = MK_gas_RF.swapaxes(0,1)
+    
+    co2_data = np.swapaxes([emissions,C,co2_RF],0,1)
+    M_data = np.swapaxes([M_emissions,M,M_RF],0,1)
+    N_data = np.swapaxes([N_emissions,N,N_RF],0,1)
+    CFC11_data = np.swapaxes([MK_gas_emissions[0],MK_gas[0],MK_gas_RF[0]],0,1)
+    CFC12_data = np.swapaxes([MK_gas_emissions[1],MK_gas[1],MK_gas_RF[1]],0,1)
+    CFC113_data = np.swapaxes([MK_gas_emissions[2],MK_gas[2],MK_gas_RF[2]],0,1)
+    HCFC22_data = np.swapaxes([MK_gas_emissions[3],MK_gas[3],MK_gas_RF[3]],0,1)
+    HFC134a_data = np.swapaxes([MK_gas_emissions[4],MK_gas[4],MK_gas_RF[4]],0,1)
+    CCl4_data = np.swapaxes([MK_gas_emissions[5],MK_gas[5],MK_gas_RF[5]],0,1)
+        
+    out = pd.Panel([co2_data,M_data,N_data,CFC11_data,CFC12_data,CFC113_data,HCFC22_data,HFC134a_data,CCl4_data],
+                    items = ['CO2','CH4','N2O','CFC-11','CFC-12','CFC-113','HCFC-22','HFC-134a','CCl4'],
+                    major_axis = np.arange(integ_len),
+                    minor_axis = ['emissions','concentration','forcing'])
+    
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF, M, N, MK_gas.swapaxes(0,1) # Swapaxes back to get separate species timeseries as outputs
+        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out # Swapaxes back to get separate species timeseries as outputs
 
 
 def plot_fair(emms,
