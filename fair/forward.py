@@ -108,15 +108,14 @@ def emissions_concentrations_sort(Arr,
     # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
 
     # # # ------------ CODE ------------ # # #
-    for x in range(len(Arr)):
-        if type(Arr[x]) in [int,float]:
-            Arr[x] = np.full(length,Arr[x])
-        elif type(Arr[x]) == bool:
-            Arr[x] = np.zeros(length)
-    if any(len(x) != length for x in Arr):
-	    raise ValueError("One or more of the emissions/concentrations given or other_rf timeseries doesn't have the same length")
-    else:
-	    return Arr
+    for i,x in enumerate(Arr):
+        if type(x) in [int,float]:
+            Arr[i] = np.full(length,x)
+        elif type(x) == bool:
+            Arr[i] = np.zeros(length)
+        elif len(x) != length:
+            raise ValueError("One or more of the emissions/concentrations given or other_rf timeseries doesn't have the same length")
+    return Arr
 
 # Define a function that gives the Radiative forcing due to CH4 as per Etminan et al. 2016, table 1
 def RF_M(M,
@@ -263,7 +262,7 @@ def RF_N(C,
     
     return (a2*np.mean([C,C_0]) + b2*np.mean([N,N_0]) + c2*np.mean([M,M_0]) + K) * (np.sqrt(N) - np.sqrt(N_0))
     
-# Define a function that gives the Radiative forcing due to N2O as per Etminan et al. 2016, table 1
+# Define a function that gives the Radiative forcing due to CO2 as per Etminan et al. 2016, table 1
 def RF_C(C,
          N,
          C_0,
