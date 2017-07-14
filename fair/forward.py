@@ -533,7 +533,7 @@ def plot_fair(emms,
         tempax = intempax
 
     emmsax.plot(ftime,pts['emms'],color=colour['emms'],label=label,ls=linestyle)
-    emmsax.set_ylabel('Emissions (GtC)')
+    emmsax.set_ylabel(r'Emissions (GtC.yr$^{-1}$)')
     if label is not None:
         emmsax.legend(loc='best')
     concax.plot(time,pts['conc'],color=colour['conc'],ls=linestyle)
