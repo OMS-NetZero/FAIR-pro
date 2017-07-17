@@ -404,11 +404,14 @@ def fair_scm(tstep=1.0,
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
              tau_M=9.25,
-             tau_N=121.0,
+             tau_N=109.0,
              tau_MK_gas=np.array([57.0,143.0,118.0,12.2,13.9,31.3]),
              r0=32.40,
              rC=0.019,
              rT=4.165,
+             m0=11.2,
+             mM=0.000,
+             mT=0.0,
              F_2x=3.74,
              MK_gas_RE=np.array([0.26,0.32,0.30,0.21,0.16,0.17]),
              C_0=278.0,
@@ -672,6 +675,8 @@ def fair_scm(tstep=1.0,
     RF = np.zeros(integ_len)
     C_acc = np.zeros(integ_len)
     iirf100 = np.zeros(integ_len)
+    M_iirf100 = np.zeros(integ_len)
+    M_lifetime = np.zeros(integ_len)
 
     carbon_boxes_shape = (integ_len,4)
     R_i = np.zeros(carbon_boxes_shape)
@@ -716,7 +721,12 @@ def fair_scm(tstep=1.0,
 
         # Multiply default timescales by scale factor
         tau_new = time_scale_sf * tau
-
+        
+        # Now do the same thing for Methane OH lifetime:
+        M_iirf100[0] = m0 + mM * (M_pre - M_0) + mT * np.sum(T_j_pre)
+        tau_M_new = (1/M_iirf100[0] + 1/120.0 + 1/150.0 + 1/200.0)**(-1) # add all the Methane lifetime factors to the OH lifetime impact
+        M_lifetime[0] = tau_M_new
+        
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
         R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
@@ -725,8 +735,8 @@ def fair_scm(tstep=1.0,
         C[0] = np.sum(R_i[0]) + C_0
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
-        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M) \
-                + M_emissions[0]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 \
+        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M_new) \
+                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
                 + M_0
         
         N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) \
@@ -774,6 +784,11 @@ def fair_scm(tstep=1.0,
 
           # Multiply default timescales by scale factor
           tau_new = time_scale_sf * tau
+          
+          # Now same calculation for Methane
+          M_iirf100[x] = m0 + mM * (M[x-1] - M_0) + mT*T[x-1]
+          tau_M_new = (1/M_iirf100[x] + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          M_lifetime[x] = tau_M_new
 
           # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
@@ -783,8 +798,8 @@ def fair_scm(tstep=1.0,
           C[x] = np.sum(R_i[x]) + C_0
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
-          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M) \
-                  + M_emissions[x]*tau_M*(1-np.exp(-tstep/tau_M)) / ppb_MtCH4 \
+          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M_new) \
+                  + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
                   + M_0
           
           N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) \
@@ -835,7 +850,7 @@ def fair_scm(tstep=1.0,
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out # Swapaxes back to get separate species timeseries as outputs
+        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out, M_lifetime # Swapaxes back to get separate species timeseries as outputs
 
 
 def plot_fair(emms,
