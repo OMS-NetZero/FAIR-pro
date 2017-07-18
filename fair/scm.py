@@ -231,6 +231,8 @@ class FAIR(object):
         # here we check if FAIR is emissions driven
         if type(emissions) in [np.ndarray,list]:
             n = len(emissions)
+            if type(emissions) in [list]:
+                emissions = np.array(emissions)
             if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=n):
                 raise ValueError("The emissions and other_rf timeseries don't have the same length")
             elif type(other_rf) in [int,float]:
@@ -240,6 +242,8 @@ class FAIR(object):
         elif type(co2_concs) in [np.ndarray,list]:
             n = len(co2_concs)
             conc_driven = True
+            if type(co2_concs) in [list]:
+                co2_concs = np.array(co2_concs)
             if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=n):
                 raise ValueError("The concentrations and other_rf timeseries don't have the same length")
             elif type(other_rf) in [int,float]:
@@ -248,6 +252,8 @@ class FAIR(object):
         # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
         elif type(other_rf) in [np.ndarray,list]:
             n = len(other_rf)
+            if type(other_rf) in [list]:
+                other_rf = np.array(other_rf)
             if type(emissions) in [int,float]:
                 emissions = np.full(n,emissions)
             else:
@@ -488,11 +494,10 @@ class FAIR(object):
             self.tau_x = self.tau*self.sf_x
 
             self.R_i_x = (self.R_i_x_pre*np.exp(-self.tstep/self.tau_x) 
-                          + (self.emissions[self.x,np.newaxis])
+                          + self.emissions[self.x,np.newaxis]
                             * self.a*self.tau_x
                             * (1-np.exp(-self.tstep/self.tau_x)) 
-                            / self.ppm_gtc
-                         )
+                            / self.ppm_gtc)
 
             self.C_x = np.sum(self.R_i_x) + self.C_0
             self.C_acc_x = (self.C_acc_x_pre + self.emissions[self.x] 
@@ -574,12 +579,13 @@ class FAIR(object):
             # run the timestep
             self.time_step()
             # save the output
-            self.R_i[x] = self.R_i_x
+            if not self.conc_driven:
+                self.R_i[x] = self.R_i_x
+                self.iirf100[x] = self.iirf100_x
             self.T_j[x] = self.T_j_x
             self.C[x] = self.C_x
             self.T[x] = self.T_x
             self.C_acc[x] = self.C_acc_x
-            self.iirf100[x] = self.iirf100_x
             self.RF[x] = self.RF_x
 
     def print_para(self):
@@ -682,7 +688,7 @@ class FAIR(object):
         # # # ------------ CODE ------------ # # #
         # # ------------ SORT OUT INPUT VARIABLES ------------ # #
         pts = {'emms':self.emissions,
-             'forc':self.RF,
+             'forc':self.other_rf,
              'conc':self.C,
              'temp':self.T}
 
@@ -718,6 +724,15 @@ class FAIR(object):
         if not tuts:
             tuts = 'units unknown'
 
+        # # ------------ PREPARE STATE VARIABLES FOR PLOTTING ------------ # #
+        # state variables are valid at the end of the timestep so we
+        # go from 1 - integ_len + 1 rather than 0 - integ_len
+        stime = np.arange(0.99,integ_len+0.99) + y_0
+        # pre-pend the pre-run value 
+        stime = np.insert(stime,0,0.0)
+        pts['conc'] = np.insert(pts['conc'],0,self.C_pre)
+        pts['temp'] = np.insert(pts['temp'],0,self.T_pre)
+
         # # ------------ PREPARE FLUX VARIABLES FOR PLOTTING  ------------ # #
         # Flux variables are assumed constant throughout the timestep. To make 
         # this appear on the plot we have to do the following if there's fewer 
@@ -737,18 +752,9 @@ class FAIR(object):
             for f in fluxes:
                 pts[f] = [v for v in pts[f] for i in range(0,int(div))]
                 pts[f] = np.array(pts[f])
-                
+        # if there's enough timesteps we just plot the value in the middle of the timestep
         else:
-            ftime = time - 0.5
-
-        # # ------------ PREPARE STATE VARIABLES FOR PLOTTING ------------ # #
-        # state variables are valid at the end of the timestep so we
-        # go from 1 - integ_len + 1 rather than 0 - integ_len
-        time = np.arange(0.99,integ_len+0.99) + y_0
-        # pre-pend the pre-run value 
-        time = np.insert(time,0,0.0)
-        pts['conc'] = np.insert(pts['conc'],0,self.C_pre)
-        pts['temp'] = np.insert(pts['temp'],0,self.T_pre)
+            ftime = np.arange(0.5,integ_len+0.5) + y_0
 
         # # ------------ PLOT FIGURE ------------ # #
         fig = plt.figure()
@@ -759,20 +765,19 @@ class FAIR(object):
 
         emmsax.plot(ftime,pts['emms'],color=colour['emms'])
         emmsax.set_ylabel(r'Emissions (GtC.yr$^{-1}$)')
-        concax.plot(time,pts['conc'],color=colour['conc'])
+        concax.plot(stime,pts['conc'],color=colour['conc'])
         concax.set_ylabel('CO$_2$ concentrations (ppm)')
         concax.set_xlim(emmsax.get_xlim())
         forcax.plot(ftime,pts['forc'],color=colour['forc'])
         forcax.set_ylabel('Non-CO$_2$ radiative forcing (W.m$^{-2}$)')
         forcax.set_xlabel('Time ({0})'.format(tuts))
-        tempax.plot(time,pts['temp'],color=colour['temp'])
+        tempax.plot(stime,pts['temp'],color=colour['temp'])
         tempax.set_ylabel('Temperature anomaly (K)')
         tempax.set_xlabel(forcax.get_xlabel())
         tempax.set_xlim(forcax.get_xlim())
         fig.tight_layout()
 
-        plt.tight_layout()
-        plt.show()
+        return fig,emmsax,concax,forcax,tempax
             
     # # ------------ PROPERTIES ------------ # #
     @property
@@ -810,11 +815,25 @@ class FAIR(object):
 
 if __name__ == '__main__':
     import numpy as np
-    emms = np.arange(0,100)
-    tc = FAIR(emissions=emms)
-    # print dir(tc)
-    # print tc.__init__.__doc__
-    tc.print_para()
-    tc.time_step()
-    tc.run()
-    tc.plot()
+    ts_run = FAIR(emissions=np.zeros(300),
+                      )
+    ts_run.C = np.zeros(ts_run.n)
+    ts_run.T = np.zeros(ts_run.n)
+
+    for x in range(-1,len(ts_run.emissions)-1):
+        ts_run.x = x        
+        # timestep FAIR
+        ts_run.time_step()
+        # save the results
+        ts_run.C[ts_run.x] = ts_run.C_x
+        ts_run.T[ts_run.x] = ts_run.T_x
+        # make our decision about whether to emit more or less next year
+        if ts_run.x < len(ts_run.emissions)-1:
+            if (ts_run.T_x > 0.5):
+                ts_run.emissions[ts_run.x+1] = ts_run.emissions[ts_run.x] - 0.3
+            else:
+                ts_run.emissions[ts_run.x+1] = ts_run.emissions[ts_run.x] + 0.3
+
+    fig,a,b,c,d = ts_run.plot()
+    fig.show()
+    raw_input()
