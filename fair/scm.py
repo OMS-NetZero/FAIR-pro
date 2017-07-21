@@ -1,19 +1,8 @@
 """
-FAIR simple climate model
+Module for doing calculations with the FAIR simple climate model
 
 # # ------------ CLASSES ------------ # #
-sublime snippet for module description in header is 'hclsdesc'
-
 FAIR: Class for computing with the FAIR simple climate model
-
-# # ------------ EXCEPTIONS ------------ # #
-sublime snippet for exception description in header is 'hexcdesc'
-
-# # ------------ FUNCTIONS ------------ # #
-sublime snippet for module description in header is 'hfundesc'
-
-# # ------------ ANY OTHER OBJECTS EXPORTED ------------ # #
-describe them here
 """
 
 # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
@@ -42,6 +31,12 @@ class FAIR(object):
     get_tau_sf: calculate the carbon pool decay timeconstant scaling factor for a given target value of the integrated impulse response
 
     print_para: print the current value of a FAIR instance's parameters
+
+    tune_carbon_cycle: tune FAIR's carbon cycle to another model's emissions to forcing response
+
+    sort_inputs: check FAIR inputs to make sure they're compatible and determine how FAIR is to be driven
+
+    plot: plot FAIR's key variables
 
     # # ------------ INSTANCE VARIABLES ------------ # #
     All instance variables are optional. See .__init__.__doc__ for options.
@@ -849,7 +844,19 @@ class FAIR(object):
                           r0_bnds=[0.0,100.0],
                           beta_bnds=[0.0,100.0]):
         """
-        One line summary 
+        Tune FAIR's carbon cycle to another model's emissions to forcing response
+
+        Adjust the fraction of CO2 which goes into each carbon response pool 
+        as well as the feedback parameters to tune FAIR's response to some 
+        other emissions to forcing relationship. You must supply emissions and 
+        non-CO2 radiative forcing timeseries as well as a target CO2 forcing 
+        timeseries. 
+
+        The temperature and carbon feedbacks are scaled such that the ratio 
+        between their two controlling parameters, rT/rC, remains constant.
+
+        You should also double check that you are using the correct CO2 
+        forcing parameters, F_2x and C_0, whenever you run this tuning method.
       
         # # ------------ ARGUMENTS ------------ # #
         emissions: (np.array/list)
@@ -888,18 +895,13 @@ class FAIR(object):
 
         ^ => Keyword argument
       
-        # # ------------ RETURN VALUE ------------ # #
-        sublime snippet for variable description in header is 'hvardesc'
-      
         # # ------------ SIDE EFFECTS ------------ # #
-        document side effects here
-        
-        # # ------------ EXCEPTIONS ------------ # #
-        sublime snippet for exception description in header is 'hexcdesc'
-      
-        # # ------------ RESTRICTIONS ------------ # #
-        Document any restrictions on when the function can be called
-      
+        Updates the FAIR class instance's timestep, CO2 forcing, carbon pool 
+        distribution and feedback parameters to their values at the end of the 
+        tuning.
+
+        Plots the fit between FAIR with the tuned parameters and the target 
+        timeseries. 
         """
       
         # One line break before anything else
@@ -1136,34 +1138,4 @@ class FAIR(object):
         self.calc_k_q() 
 
 if __name__ == '__main__':
-    import numpy as np
-    eyr = 2100
-    emms_file = './fair/RCPs/RCP85_EMISSIONS.csv'
-    emms_data = np.genfromtxt(emms_file,skip_header=36,delimiter=',',names=True)
-    emms_eidx = np.where(emms_data['v_YEARSGAS_'] == eyr)[0][0]
-    emissions = (emms_data['FossilCO2'][:emms_eidx] 
-                 + emms_data['OtherCO2'][:emms_eidx])
-
-    forc_file = './fair/RCPs/RCP85_MIDYEAR_RADFORCING.csv'
-    forc_data = np.genfromtxt(forc_file,skip_header=58,delimiter=',',names=True)
-    forc_eidx = np.where(forc_data['v_YEARSGAS_'] == eyr)[0][0]
-
-    targ_co2_forc = forc_data['CO2_RF'][:forc_eidx]
-    other_rf = (forc_data['TOTAL_INCLVOLCANIC_RF'][:forc_eidx] 
-                 - forc_data['CO2_RF'][:forc_eidx])
-
-    ts_run = FAIR(emissions=emissions,
-                      )
-
-    ts_run.tune_carbon_cycle(emissions=emissions,
-                             targ_co2_forc=targ_co2_forc,
-                             non_co2_forc=other_rf,
-                             F_2x=3.71,
-                             C_0=279.51,
-                             a0_bnds=[0.0,1.0],
-                             a1_bnds=[0.0,1.0],
-                             a2_bnds=[0.0,1.0],
-                             r0_bnds=[0.0,100.0],
-                             beta_bnds=[0.0,100.0])
-
-    raw_input()
+    print "hi"
