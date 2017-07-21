@@ -59,7 +59,7 @@ class FAIR(object):
                  tstep=1.0,
                  emissions=False,
                  other_rf=0.0,
-                 co2_concs=False,
+                 co2_concs_in=False,
                  R_i_pre=[0.0,0.0,0.0,0.0],
                  T_j_pre=[0.0,0.0],
                  C_acc_pre=0.0,
@@ -95,9 +95,9 @@ class FAIR(object):
           Non-CO_2 radiative forcing timeseries (W/m^2). If a scalar then other_rf 
           is assumed to be constant throughout the run.
 
-        co2_concs:^ (np.array/list/bool)
+        co2_concs_in:^ (np.array/list/bool)
           Atmospheric CO_2 concentrations timeseries (ppmv). If emissions are 
-          supplied then co2_concs is not used.
+          supplied then co2_concs_in is not used.
         
         R_i_pre: (np.array/list/bool)
           Atmospheric CO_2 concentrations in each box just before the run begins
@@ -205,6 +205,9 @@ class FAIR(object):
           realised warming in each temperature response after 70 
           years of 1%/yr CO2 increase as a fraction of equilibrium warming 
           (dimensionless)
+
+        setting_inputs: (bool)
+          If true, FAIR won't check to make sure that input timeseries are all the same. If false, every time FAIR's inputs are updated it will check to make sure that you have a coherent set. 
         
         If tcrecs is supplied as a valid 2D array then the q values are 
         re-calculated and may be over-written. If tcrecs is not supplied as a 
@@ -225,52 +228,15 @@ class FAIR(object):
         # # ------------ THIRD PARTY ------------ # #
         import numpy as np
 
-        # # # ----------- SET UP OUTPUT TIMESERIES VARIABLES ----------- # # #
-        # by default FAIR is not concentration driven
-        conc_driven=False
-        # here we check if FAIR is emissions driven
-        if type(emissions) in [np.ndarray,list]:
-            n = len(emissions)
-            if type(emissions) in [list]:
-                emissions = np.array(emissions)
-            if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=n):
-                raise ValueError("The emissions and other_rf timeseries don't have the same length")
-            elif type(other_rf) in [int,float]:
-                other_rf = np.full(n,other_rf)
-      
-        # here we check if FAIR is concentration driven
-        elif type(co2_concs) in [np.ndarray,list]:
-            n = len(co2_concs)
-            conc_driven = True
-            if type(co2_concs) in [list]:
-                co2_concs = np.array(co2_concs)
-            if (type(other_rf) in [np.ndarray,list]) and (len(other_rf)!=n):
-                raise ValueError("The concentrations and other_rf timeseries don't have the same length")
-            elif type(other_rf) in [int,float]:
-                other_rf = np.full(n,other_rf)
-
-        # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
-        elif type(other_rf) in [np.ndarray,list]:
-            n = len(other_rf)
-            if type(other_rf) in [list]:
-                other_rf = np.array(other_rf)
-            if type(emissions) in [int,float]:
-                emissions = np.full(n,emissions)
-            else:
-                emissions = np.zeros(n)
-
-        else:
-            raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
-
         # # # ------------ SET ATTRIBUTES AND PROPERTIES ------------ # # #
         # have to set 'hidden' properties the first time otherwise the setter 
         # functions will try to calculate q and k when not all their 
         # properties are set
         # # ------------ INPUTS ------------ # #
         self.tstep = tstep
-        self.emissions = emissions
-        self.other_rf = other_rf
-        self.co2_concs = co2_concs
+        self._emissions = emissions # property
+        self._other_rf = other_rf # property
+        self._co2_concs_in = co2_concs_in # property
         self.R_i_pre = R_i_pre
         self.T_j_pre = T_j_pre
         self.C_acc_pre = C_acc_pre
@@ -288,8 +254,6 @@ class FAIR(object):
         self.iirf100_max = iirf100_max
 
         # # ------------ DERIVED ------------ # #
-        self.conc_driven = conc_driven
-        self.n = n
         self.x = -1
         self.sf_x = 0.16
         self.R_i_x = self.R_i_pre
@@ -299,9 +263,87 @@ class FAIR(object):
         self.T_pre = np.sum(self.T_j_pre)
         self.T_x = self.T_pre
         self.C_acc_x = self.C_acc_pre
-
+        
+        # check input timeseries
+        self.setting_inputs = False
+        self.co2_concs_in = co2_concs_in
+        
         # calculate k and q
         self.calc_k_q()
+
+    def sort_inputs(self):
+      """
+      Sort out FAIR's input timeseries
+
+      If self.setting_inputs == True then no checks are done. Warnings are printed when FAIR comes across something unexpected.
+    
+      # # ------------ ARGUMENTS ------------ # #
+      sublime snippet for variable description in header is 'hvardesc'
+    
+      ^ => Keyword argument
+    
+      # # ------------ RETURN VALUE ------------ # #
+      sublime snippet for variable description in header is 'hvardesc'
+    
+      # # ------------ SIDE EFFECTS ------------ # #
+      May over-write some input timeseries but warnings are issued if so.
+      
+      # # ------------ EXCEPTIONS ------------ # #
+      sublime snippet for exception description in header is 'hexcdesc'
+    
+      # # ------------ RESTRICTIONS ------------ # #
+      Document any restrictions on when the function can be called
+    
+      """
+    
+      # One line break before anything else
+      if not self.setting_inputs:
+          print "Checking inputs"
+          # # # ----------- SET UP OUTPUT TIMESERIES VARIABLES ----------- # # #
+          # by default FAIR is not concentration driven
+          self.conc_driven=False
+          # here we check if FAIR is emissions driven
+          if type(self.emissions) in [np.ndarray,list]:
+              self.n = len(self.emissions)
+              if type(self.emissions) in [list]:
+                  self._emissions = np.array(self.emissions)
+              if (type(self.other_rf) in [np.ndarray,list]) and (len(self.other_rf)!=self.n):
+                  raise ValueError("The emissions and other_rf timeseries don't have the same length\n"
+                                   + "If you're setting inputs then make sure FAIR.setting_inputs == True")
+              elif type(self.other_rf) in [int,float]:
+                  self._other_rf = np.full(self.n,self.other_rf)
+                  print "other_rf is a scalar so will be constant throughout the timeseries"
+              print "Ready for emissions driven work"
+        
+          # here we check if FAIR is concentration driven
+          elif type(self.co2_concs_in) in [np.ndarray,list]:
+              self.n = len(self.co2_concs_in)
+              self.conc_driven = True
+              if type(self.co2_concs_in) in [list]:
+                  self._co2_concs_in = np.array(self.co2_concs_in)
+              if (type(self.other_rf) in [np.ndarray,list]) and (len(self.other_rf)!=self.n):
+                  raise ValueError("The concentrations and other_rf timeseries don't have the same length\n"
+                                   + "If you're setting inputs then make sure FAIR.setting_inputs == True")
+              elif type(self.other_rf) in [int,float]:
+                  self._other_rf = np.full(self.n,self.other_rf)
+                  print "other_rf is a scalar so will be constant throughout the timeseries"
+              print "Ready for CO_2 concentration driven work"
+
+          # finally we check if only a non-CO2 radiative forcing timeseries has been supplied
+          elif type(self.other_rf) in [np.ndarray,list]:
+              self.n = len(self.other_rf)
+              if type(self.other_rf) in [list]:
+                  self._other_rf = np.array(self.other_rf)
+              if type(self.emissions) in [int,float]:
+                  self._emissions = np.full(self.n,self.emissions)
+                  print "emissions is a scalar so will be constant throughout the timeseries"
+              else:
+                  self._emissions = np.zeros(self.n)
+                  print "couldn't find emissions, setting to zero"
+              print "Ready for Non-CO_2 forcing driven work"
+
+          else:
+              raise ValueError("None of emissions, co2_concs_in or other_rf are defined as a timeseries")
 
     def calc_k_q(self):
         """
@@ -483,7 +525,7 @@ class FAIR(object):
         self.x += 1
 
         if self.conc_driven:
-            self.C_x = self.co2_concs[self.x]
+            self.C_x = self.co2_concs_in[self.x]
         else:
             self.iirf100_x = self.r0 + self.rC*self.C_acc_x_pre + self.rT*self.T_x_pre
             
@@ -503,8 +545,8 @@ class FAIR(object):
             self.C_acc_x = (self.C_acc_x_pre + self.emissions[self.x] 
                             - (self.C_x - self.C_x_pre)*self.ppm_gtc)
 
-        self.RF_x = ((self.F_2x/np.log(2.)) * np.log((self.C_x_pre)/self.C_0) 
-                     + self.other_rf[self.x])
+        self.RF_CO2_x = (self.F_2x/np.log(2.))*np.log((self.C_x_pre)/self.C_0)
+        self.RF_x = self.RF_CO2_x + self.other_rf[self.x]
 
         self.T_j_x = (self.T_j_x_pre*np.exp(-self.tstep/self.d) 
                       + self.RF_x[np.newaxis]*self.q*(1-np.exp(-self.tstep/self.d)))
@@ -562,6 +604,7 @@ class FAIR(object):
         self.T = np.zeros((self.n))
         self.C_acc =np.zeros((self.n))
         self.iirf100 = np.zeros((self.n))
+        self.RF_CO2 = np.zeros((self.n))
         self.RF = np.zeros((self.n))
 
         # ------------ INITIALISE VARIABLES ------------ #
@@ -586,6 +629,7 @@ class FAIR(object):
             self.C[x] = self.C_x
             self.T[x] = self.T_x
             self.C_acc[x] = self.C_acc_x
+            self.RF_CO2[x] = self.RF_CO2_x
             self.RF[x] = self.RF_x
 
     def print_para(self):
@@ -629,6 +673,7 @@ class FAIR(object):
                  'conc':'blue',
                  'forc':'orange',
                  'temp':'red'},
+             showplt=False
              ):
         """
         Function to plot FAIR variables
@@ -648,6 +693,9 @@ class FAIR(object):
         
         colour:^ (dict)
           dictionary of colours to use for each timeseries
+
+        showplt:^ (bool)
+          whether to show the plot before returning the figure or not
 
         ^ => Keyword argument
     
@@ -687,12 +735,17 @@ class FAIR(object):
 
         # # # ------------ CODE ------------ # # #
         # # ------------ SORT OUT INPUT VARIABLES ------------ # #
+        # read our input arrays into a dictionary which will hold all our plotting points
         pts = {'emms':self.emissions,
-             'forc':self.other_rf,
-             'conc':self.C,
-             'temp':self.T}
+               'forc':self.RF,
+               'forc-co2':self.RF_CO2,
+               'forc-non-co2':self.other_rf,
+               'conc':self.C,
+               'temp':self.T}
 
-        integ_len = 0
+        # define our flux variables, all others assumed to be state variables
+        fluxes = ['emms','forc','forc-co2','forc-non-co2']
+        integ_len = self.n
 
         for j,var in enumerate(pts):
             if type(pts[var]) == list:
@@ -727,9 +780,9 @@ class FAIR(object):
         # # ------------ PREPARE STATE VARIABLES FOR PLOTTING ------------ # #
         # state variables are valid at the end of the timestep so we
         # go from 1 - integ_len + 1 rather than 0 - integ_len
-        stime = np.arange(0.99,integ_len+0.99) + y_0
+        pts['stime'] = np.arange(0.99,integ_len+0.99) + y_0
         # pre-pend the pre-run value 
-        stime = np.insert(stime,0,0.0)
+        pts['stime'] = np.insert(pts['stime'],0,0.0)
         pts['conc'] = np.insert(pts['conc'],0,self.C_pre)
         pts['temp'] = np.insert(pts['temp'],0,self.T_pre)
 
@@ -745,16 +798,14 @@ class FAIR(object):
             # work out how long each piece is (in the units of a timestep)
             plen = 1.0/div
             # create a flux timeseries
-            ftime = np.arange(0,integ_len,plen) + y_0
-            # set our flux variables
-            fluxes = ['emms','forc']
+            pts['ftime'] = np.arange(0,integ_len,plen) + y_0
             # update our flux timeseries to show the step changes properly
             for f in fluxes:
                 pts[f] = [v for v in pts[f] for i in range(0,int(div))]
                 pts[f] = np.array(pts[f])
         # if there's enough timesteps we just plot the value in the middle of the timestep
         else:
-            ftime = np.arange(0.5,integ_len+0.5) + y_0
+            pts['ftime'] = np.arange(0.5,integ_len+0.5) + y_0
 
         # # ------------ PLOT FIGURE ------------ # #
         fig = plt.figure()
@@ -763,23 +814,294 @@ class FAIR(object):
         forcax = fig.add_subplot(223)
         tempax = fig.add_subplot(224)
 
-        emmsax.plot(ftime,pts['emms'],color=colour['emms'])
-        emmsax.set_ylabel(r'Emissions (GtC.yr$^{-1}$)')
-        concax.plot(stime,pts['conc'],color=colour['conc'])
+        emmsax.plot(pts['ftime'],pts['emms'],color=colour['emms'])
+        emmsax.set_ylabel(r'CO$_2$ emissions (GtC.yr$^{-1}$)')
+        concax.plot(pts['stime'],pts['conc'],color=colour['conc'])
         concax.set_ylabel('CO$_2$ concentrations (ppm)')
         concax.set_xlim(emmsax.get_xlim())
-        forcax.plot(ftime,pts['forc'],color=colour['forc'])
-        forcax.set_ylabel('Non-CO$_2$ radiative forcing (W.m$^{-2}$)')
+        forcax.plot(pts['ftime'],pts['forc'],color=colour['forc'],label='Total')
+        forcax.plot(pts['ftime'],pts['forc-co2'],label=r'CO$_2$')
+        forcax.plot(pts['ftime'],pts['forc-non-co2'],label=r'Non-CO$_2$')
+        forcax.set_ylabel('Radiative forcing (W.m$^{-2}$)')
         forcax.set_xlabel('Time ({0})'.format(tuts))
-        tempax.plot(stime,pts['temp'],color=colour['temp'])
+        forcax.legend()
+        tempax.plot(pts['stime'],pts['temp'],color=colour['temp'])
         tempax.set_ylabel('Temperature anomaly (K)')
         tempax.set_xlabel(forcax.get_xlabel())
         tempax.set_xlim(forcax.get_xlim())
         fig.tight_layout()
 
+        if showplt:
+            fig.show()
+
         return fig,emmsax,concax,forcax,tempax
             
+    def tune_carbon_cycle(self,
+                          emissions=False,
+                          targ_co2_forc=False,
+                          non_co2_forc=False,
+                          tstep=1.0,
+                          F_2x=3.74,
+                          C_0=278,
+                          a0_bnds=[0.0,1.0],
+                          a1_bnds=[0.0,1.0],
+                          a2_bnds=[0.0,1.0],
+                          r0_bnds=[0.0,100.0],
+                          beta_bnds=[0.0,100.0]):
+        """
+        One line summary 
+      
+        # # ------------ ARGUMENTS ------------ # #
+        emissions: (np.array/list)
+          emissions with which to drive FAIR
+
+        targ_co2_forc: (np.array/list)
+          target CO_2 forcing (W/m^2)
+
+        non_co2_forc: (np.array/list)
+          non CO_2 forcing (W/m^2) with which to drive FAIR
+
+        tstep: (float)
+          length of a timestep in our timeseries (yrs)
+
+        F_2x: (float)
+          forcing due to a doubling of CO_2 to use in our tuning
+
+        C_0: (float)
+          pre-industrial CO_2 concentration to use in our tuning
+
+        a0_bnds: (list)
+          minimum and maximum allowed values for a0
+      
+        a1_bnds: (list)
+          minimum and maximum allowed values for a1
+
+        a2_bnds: (list)
+          minimum and maximum allowed values for a2
+
+        r0_bnds: (list)
+          minimum and maximum allowed values for r0
+
+        beta_bnds: (list)
+          minimum and maximum allowed values for beta, the scaling parameter 
+          of rC and rT
+
+        ^ => Keyword argument
+      
+        # # ------------ RETURN VALUE ------------ # #
+        sublime snippet for variable description in header is 'hvardesc'
+      
+        # # ------------ SIDE EFFECTS ------------ # #
+        document side effects here
+        
+        # # ------------ EXCEPTIONS ------------ # #
+        sublime snippet for exception description in header is 'hexcdesc'
+      
+        # # ------------ RESTRICTIONS ------------ # #
+        Document any restrictions on when the function can be called
+      
+        """
+      
+        # One line break before anything else
+        # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+        # # ------------ THIRD PARTY ------------ # #
+        import scipy.optimize
+
+        print "=============================================="
+        print "Tuning FAIR's carbon cycle"
+        print "=============================================="
+
+        # define our values of rC and rT when beta = 1.0
+        rC_base = 0.019
+        rT_base = 4.165
+
+        # Check we have input timeseries
+        self.setting_inputs = True
+        if type(emissions) not in [np.ndarray,list]:
+            print "emissions type: {0}".format(type(emissions))
+            raise ValueError("Error: Emissions must be a timeseries")
+        else:
+            self.emissions = np.array(emissions)
+
+        if type(targ_co2_forc) not in [np.ndarray,list]:
+            print "targ_co2_forc type: {0}".format(type(targ_co2_forc))
+            raise ValueError("Error: Target forcing must be a timeseries")
+        elif len(targ_co2_forc) != len(emissions):
+            print "len(emissions) = {0}".format(len(emissions))
+            print "len(targ_co2_forc) = {0}".format(len(targ_co2_forc))
+            raise ValueError("Error: Target forcing and emissions timeseries must be the same length")
+        elif type(targ_co2_forc) in [list]:
+            targ_co2_forc = np.array(targ_co2_forc)
+
+        if type(non_co2_forc) not in [np.ndarray,list]:
+            raise ValueError("Error: tuning without a non-CO_2 forcing timeseries is not yet implemented")
+        elif len(non_co2_forc) != len(emissions):
+            print "len(emissions) = {0}".format(len(emissions))
+            print "len(non_co2_forc) = {0}".format(len(non_co2_forc))
+            raise ValueError("Error: Non-CO_2 forcing and emissions timeseries must be the same length")
+        else:
+            self.setting_inputs = False
+            self.other_rf = non_co2_forc
+
+        # Print out tuning parameters to confirm for the user
+        print "Tuning carbon cycle with"
+        print "tsep = {0} years".format(tstep)
+        self.tstep = tstep
+        print "F_2X = {0} W/m^2".format(F_2x)
+        self.F_2x = F_2x
+        print "C_0 = {0} ppmv\n".format(C_0)
+        self.C_0 = C_0
+
+        # define our emissions to forcing function
+        def emms_to_forc(emissions,a0,a1,a2,r0,beta):
+            """
+            Function to determine FAIR CO2 forcings from input CO2 emissions
+          
+            More details of behaviour if required.
+          
+            # # ------------ ARGUMENTS ------------ # #
+            emissions: (np.array/list)
+              CO_2 emissions timeseries
+
+            a0: (float)
+              fraction of emissions which go into the slowest uptake carbon pool
+
+            a1: (float)
+              fraction of emissions which go into the second slowest uptake 
+              carbon pool
+
+            a2: (float)
+              fraction of emissions which go into the third slowest uptake 
+              carbon pool
+
+            r0: (float)
+              pre-industrial 100yr integrated impulse response function (yrs)
+
+            beta: (flaot)
+              scaling factor of rC and rT parameters. When beta = 1.0, rC = 
+              0.019 yr/GtC and rT = 4.165 yr/K
+          
+            ^ => Keyword argument
+          
+            # # ------------ RETURN VALUE ------------ # #
+            sublime snippet for variable description in header is 'hvardesc'
+          
+            # # ------------ SIDE EFFECTS ------------ # #
+            a3 = 1.0 - a0 - a1 - a2
+          
+            # # ------------ EXCEPTIONS ------------ # #
+            sublime snippet for exception description in header is 'hexcdesc'
+          
+            # # ------------ RESTRICTIONS ------------ # #
+            Document any restrictions on when the function can be called
+          
+            """
+          
+            # One line break before anything else
+            # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+            # # ------------ STANDARD LIBRARY ------------ # #
+            import sys
+
+            # # ------------ THIRD PARTY ------------ # #
+        
+            # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+        
+            # # # ------------ CODE ------------ # # #
+            
+            # print which tuning run we're up to
+            print "\r{0}".format(self.tuning_run),
+            sys.stdout.flush()
+            
+            # turn on setting inputs to avoid many messages
+            self.setting_inputs = True
+            self.emissions = emissions
+            self.setting_inputs = False
+            self.a = [a0,a1,a2,1 - a0 - a1 - a2]
+            self.r0 = r0
+            self.rC = beta * rC_base
+            self.rT = beta * rT_base
+            self.run()
+            self.tuning_run += 1
+
+            return self.RF_CO2
+
+        self.tuning_run = 0
+        print "Tuning runs required"
+
+        mins = [a0_bnds[0],a1_bnds[0],a2_bnds[0],r0_bnds[0],beta_bnds[0]]
+        maxs = [a0_bnds[1],a1_bnds[1],a2_bnds[1],r0_bnds[1],beta_bnds[1]]
+
+        para,cov = scipy.optimize.curve_fit(emms_to_forc,
+                                            emissions,
+                                            targ_co2_forc,
+                                            p0 = [self.a[0],
+                                                  self.a[1],
+                                                  self.a[2],
+                                                  self.r0,
+                                                  self.rC/rC_base,],
+                                            bounds = (mins,maxs)
+                                            )
+
+        # read our parameters back into self
+        self.a = [para[0],para[1],para[2],1-para[0]-para[1]-para[2]]
+        self.r0 = para[3]
+        self.rC = para[4] * rC_base
+        self.rT = para[4] * rT_base
+
+        # print summary
+        print "Tuning finished"
+        print ""
+        print "Parameters used"
+        print "-----------------"
+        print "F_2x = {0} W/m^2".format(self.F_2x)
+        print "C_0 = {0} ppmv".format(self.C_0)
+        print ""
+        print "Output parameters"
+        print "-----------------"
+        print "a0 = {0}".format(self.a[0])
+        print "a1 = {0}".format(self.a[1])
+        print "a2 = {0}".format(self.a[2])
+        print "a3 = {0}".format(self.a[3])
+        print "sum of a = {0}".format(np.sum(self.a))
+        print ""
+        print "r0 = {0} yrs".format(self.r0)
+        print "rC = {0} yrs/GtC".format(self.rC)
+        print "rT = {0} yrs/K".format(self.rT)
+
+        self.run()
+        fig,emmsax,concax,forcax,tempax = self.plot(showplt=False)
+        forcax.plot(np.arange(0,len(targ_co2_forc)),targ_co2_forc,label='Target',color='green')
+        forcax.legend()
+        fig.show()
+
     # # ------------ PROPERTIES ------------ # #
+    @property
+    def emissions(self):
+        return self._emissions
+
+    @emissions.setter
+    def emissions(self,val):
+        self._emissions = val
+        self.sort_inputs()
+
+    @property
+    def other_rf(self):
+        return self._other_rf
+
+    @other_rf.setter
+    def other_rf(self,val):
+        self._other_rf = val
+        self.sort_inputs()
+
+    @property
+    def co2_concs_in(self):
+        return self._co2_concs_in
+
+    @co2_concs_in.setter
+    def co2_concs_in(self,val):
+        self._co2_concs_in = val
+        self.sort_inputs()
+
     @property
     def tcrecs(self):
         return self._tcrecs
@@ -815,25 +1137,33 @@ class FAIR(object):
 
 if __name__ == '__main__':
     import numpy as np
-    ts_run = FAIR(emissions=np.zeros(300),
+    eyr = 2100
+    emms_file = './fair/RCPs/RCP85_EMISSIONS.csv'
+    emms_data = np.genfromtxt(emms_file,skip_header=36,delimiter=',',names=True)
+    emms_eidx = np.where(emms_data['v_YEARSGAS_'] == eyr)[0][0]
+    emissions = (emms_data['FossilCO2'][:emms_eidx] 
+                 + emms_data['OtherCO2'][:emms_eidx])
+
+    forc_file = './fair/RCPs/RCP85_MIDYEAR_RADFORCING.csv'
+    forc_data = np.genfromtxt(forc_file,skip_header=58,delimiter=',',names=True)
+    forc_eidx = np.where(forc_data['v_YEARSGAS_'] == eyr)[0][0]
+
+    targ_co2_forc = forc_data['CO2_RF'][:forc_eidx]
+    other_rf = (forc_data['TOTAL_INCLVOLCANIC_RF'][:forc_eidx] 
+                 - forc_data['CO2_RF'][:forc_eidx])
+
+    ts_run = FAIR(emissions=emissions,
                       )
-    ts_run.C = np.zeros(ts_run.n)
-    ts_run.T = np.zeros(ts_run.n)
 
-    for x in range(-1,len(ts_run.emissions)-1):
-        ts_run.x = x        
-        # timestep FAIR
-        ts_run.time_step()
-        # save the results
-        ts_run.C[ts_run.x] = ts_run.C_x
-        ts_run.T[ts_run.x] = ts_run.T_x
-        # make our decision about whether to emit more or less next year
-        if ts_run.x < len(ts_run.emissions)-1:
-            if (ts_run.T_x > 0.5):
-                ts_run.emissions[ts_run.x+1] = ts_run.emissions[ts_run.x] - 0.3
-            else:
-                ts_run.emissions[ts_run.x+1] = ts_run.emissions[ts_run.x] + 0.3
+    ts_run.tune_carbon_cycle(emissions=emissions,
+                             targ_co2_forc=targ_co2_forc,
+                             non_co2_forc=other_rf,
+                             F_2x=3.71,
+                             C_0=279.51,
+                             a0_bnds=[0.0,1.0],
+                             a1_bnds=[0.0,1.0],
+                             a2_bnds=[0.0,1.0],
+                             r0_bnds=[0.0,100.0],
+                             beta_bnds=[0.0,100.0])
 
-    fig,a,b,c,d = ts_run.plot()
-    fig.show()
     raw_input()
