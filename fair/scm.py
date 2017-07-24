@@ -14,7 +14,6 @@ import numpy as np
 # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
 
 
-
 class FAIR(object):
     """
     FAIR: Class for computing with the FAIR simple climate model
@@ -838,6 +837,7 @@ class FAIR(object):
                           tstep=1.0,
                           F_2x=3.74,
                           C_0=278,
+                          tcrecs=None,
                           a0_bnds=[0.0,1.0],
                           a1_bnds=[0.0,1.0],
                           a2_bnds=[0.0,1.0],
@@ -876,6 +876,11 @@ class FAIR(object):
 
         C_0: (float)
           pre-industrial CO_2 concentration to use in our tuning
+
+        tcrecs: (list/np.array)
+          input list with substructure:
+            [0]: transient climate sensitivity to use during tuning (K)
+            [1]: equilibrium climate sensitivity to use during tuning (K)
 
         a0_bnds: (list)
           minimum and maximum allowed values for a0
@@ -947,12 +952,17 @@ class FAIR(object):
 
         # Print out tuning parameters to confirm for the user
         print "Tuning carbon cycle with"
-        print "tsep = {0} years".format(tstep)
         self.tstep = tstep
-        print "F_2X = {0} W/m^2".format(F_2x)
+        print "tsep = {0} years".format(self.tstep)
         self.F_2x = F_2x
-        print "C_0 = {0} ppmv\n".format(C_0)
+        print "F_2X = {0} W/m^2".format(self.F_2x)
         self.C_0 = C_0
+        print "C_0 = {0} ppmv".format(self.C_0)
+        if tcrecs is not None:
+            self.tcrecs = tcrecs
+        print "TCR = {0} K".format(self.tcrecs[0])
+        print "ECS = {0} K\n".format(self.tcrecs[1])
+        
 
         # define our emissions to forcing function
         def emms_to_forc(emissions,a0,a1,a2,r0,beta):
@@ -1138,4 +1148,32 @@ class FAIR(object):
         self.calc_k_q() 
 
 if __name__ == '__main__':
-    print "hi"
+    import numpy as np
+    eyr = 2100
+    emms_file = './fair/RCPs/RCP3PD_EMISSIONS.csv'
+    emms_data = np.genfromtxt(emms_file,skip_header=36,delimiter=',',names=True)
+    emms_eidx = np.where(emms_data['v_YEARSGAS_'] == eyr)[0][0]
+    emissions = (emms_data['FossilCO2'][:emms_eidx] 
+                 + emms_data['OtherCO2'][:emms_eidx])
+
+    forc_file = './fair/RCPs/RCP3PD_MIDYEAR_RADFORCING.csv'
+    forc_data = np.genfromtxt(forc_file,skip_header=58,delimiter=',',names=True)
+    forc_eidx = np.where(forc_data['v_YEARSGAS_'] == eyr)[0][0]
+
+    targ_co2_forc = forc_data['CO2_RF'][:forc_eidx]
+    other_rf = (forc_data['TOTAL_INCLVOLCANIC_RF'][:forc_eidx] 
+                 - forc_data['CO2_RF'][:forc_eidx])
+
+    ts_run = FAIR(emissions=emissions,
+                      )
+
+    ts_run.tune_carbon_cycle(emissions=emissions,
+                             targ_co2_forc=targ_co2_forc,
+                             non_co2_forc=other_rf,
+                             F_2x=3.71,
+                             C_0=279.51,
+                             a0_bnds=[0.0,1.0],
+                             a1_bnds=[0.0,1.0],
+                             a2_bnds=[0.0,1.0],
+                             r0_bnds=[0.0,100.0],
+                             beta_bnds=[0.0,100.0])
