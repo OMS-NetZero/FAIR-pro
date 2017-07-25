@@ -864,30 +864,29 @@ def fair_scm(tstep=1.0,
         # Sum the thermal response boxes to get the total temperature anomaly
         T[x] = np.sum(T_j[x])
 
-    # Now we gather together all the relevant data such that we can output it all in a panda Panel (3D Dataframe)- using swapaxes to ensure the output is in the format we want
+    # Now we gather together all the relevant data such that we can output it all in a nested dict. We have to swapaxes the MK gases to get them in the right format.
     MK_gas = MK_gas.swapaxes(0,1)
     MK_gas_emissions = MK_gas_emissions.swapaxes(0,1)
     MK_gas_RF = MK_gas_RF.swapaxes(0,1)
     
-    co2_data = np.swapaxes([emissions,C,co2_RF],0,1)
-    M_data = np.swapaxes([M_emissions,M,M_RF],0,1)
-    N_data = np.swapaxes([N_emissions,N,N_RF],0,1)
-    CFC11_data = np.swapaxes([MK_gas_emissions[0],MK_gas[0],MK_gas_RF[0]],0,1)
-    CFC12_data = np.swapaxes([MK_gas_emissions[1],MK_gas[1],MK_gas_RF[1]],0,1)
-    CFC113_data = np.swapaxes([MK_gas_emissions[2],MK_gas[2],MK_gas_RF[2]],0,1)
-    HCFC22_data = np.swapaxes([MK_gas_emissions[3],MK_gas[3],MK_gas_RF[3]],0,1)
-    HFC134a_data = np.swapaxes([MK_gas_emissions[4],MK_gas[4],MK_gas_RF[4]],0,1)
-    CCl4_data = np.swapaxes([MK_gas_emissions[5],MK_gas[5],MK_gas_RF[5]],0,1)
-        
-    out = pd.Panel([co2_data,M_data,N_data,CFC11_data,CFC12_data,CFC113_data,HCFC22_data,HFC134a_data,CCl4_data],
-                    items = ['CO2','CH4','N2O','CFC-11','CFC-12','CFC-113','HCFC-22','HFC-134a','CCl4'],
-                    major_axis = np.arange(integ_len),
-                    minor_axis = ['emissions','concentration','forcing'])
+    # Creating the dictionaries to then be nested within one output
+    emissions_out = {'CO2' : emissions, 'CH4' : M_emissions, 'N2O' : N_emissions,
+                     'CFC11' : MK_gas_emissions[0], 'CFC12' : MK_gas_emissions[1], 'CFC113' : MK_gas_emissions[2], 
+                     'HCFC22' : MK_gas_emissions[3], 'HFC134a' : MK_gas_emissions[4], 'CCl4' : MK_gas_emissions[5]}
+    concentration_out = {'CO2' : C, 'CH4' : M, 'N2O' : N ,
+                         'CFC11' : MK_gas[0], 'CFC12' : MK_gas[1], 'CFC113' : MK_gas[2], 'HCFC22' : MK_gas[3], 'HFC134a' : MK_gas[4], 'CCl4' : MK_gas[5]}
+    forcing_out = {'total' : RF, 'other' : other_rf, 'CO2' : co2_RF, 'CH4' : M_RF, 'N2O' : N_RF,
+                   'CFC11' : MK_gas_RF[0], 'CFC12' : MK_gas_RF[1], 'CFC113' : MK_gas_RF[2], 
+                   'HCFC22' : MK_gas_RF[3], 'HFC134a' : MK_gas_RF[4], 'CCl4' : MK_gas_RF[5]}
+    lifetime_out = {'CH4' : M_lifetime, 'N2O': N_lifetime}
+    
+    # Create the output dictionary
+    out = {'emissions' : emissions_out , 'concentration' : concentration_out , 'forcing' : forcing_out , 'lifetime' : lifetime_out , 'temperature' : T} 
     
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out, M_lifetime, N_lifetime # Swapaxes back to get separate species timeseries as outputs
+        return out
 
 
 def plot_fair(emms,
