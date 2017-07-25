@@ -119,12 +119,9 @@ def emissions_concentrations_sort(Arr,
 
 # Define a function that gives the Radiative forcing due to CH4 as per Etminan et al. 2016, table 1
 def RF_M(M,
-         N,
-         M_0,
-         N_0,
-         a3=-1.3*10**(-6),
-         b3=-8.2*10**(-6),
-         K=0.043):
+         M_0=722.0,
+         N_0=270.0,
+         alp_m=0.036):
     """
     Takes input unperturbed/ perturbed concentrations of CH4 and N2O 
     and returns radiative forcing caused by CH4
@@ -181,19 +178,16 @@ def RF_M(M,
 
     # # # ------------ CODE ------------ # # #
         
-    return (a3*np.mean([M,M_0]) + b3*np.mean([N,N_0]) + K) * (np.sqrt(M) - np.sqrt(M_0))
+    def f(M, N):
+        return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52))
+        
+    return alp_m * (np.sqrt(M) - np.sqrt(M_0)) - (f(M, N_0) - f(M_0, N_0))
     
 # Define a function that gives the Radiative forcing due to N2O as per Etminan et al. 2016, table 1
-def RF_N(C,
-         M,
-         N,
-         C_0,
-         M_0,
-         N_0,
-         a2=-8.0*10**(-6),
-         b2=4.2*10**(-6),
-         c2=-4.9*10**(-6),
-         K=0.117):
+def RF_N(N,
+         M_0=722.0,
+         N_0=270.0,
+         alp_n = 0.12):
     """
     Takes input unperturbed/ perturbed concentrations of CO2, CH4, N2O 
     and returns radiative forcing caused by N2O
@@ -260,17 +254,15 @@ def RF_N(C,
 
     # # # ------------ CODE ------------ # # #
     
-    return (a2*np.mean([C,C_0]) + b2*np.mean([N,N_0]) + c2*np.mean([M,M_0]) + K) * (np.sqrt(N) - np.sqrt(N_0))
+    def f(M, N):
+        return 0.47 * np.log(1 + 2.01 * 10**(-5) * (M * N)**0.75 + 5.31 * 10**(-15) * M * (M * N)**(1.52))
+        
+    return alp_n * (np.sqrt(N) - np.sqrt(N_0)) - (f(M_0, N) - f(M_0, N_0))
     
 # Define a function that gives the Radiative forcing due to CO2 as per Etminan et al. 2016, table 1
 def RF_C(C,
-         N,
-         C_0,
-         N_0,
-         a1=-2.4*10**(-7),
-         b1=7.2*10**(-4),
-         c1=-2.1*10**(-4),
-         K=5.36):
+         C_0=278.0,
+         F_2x=3.74):
     """
     Takes input unperturbed/ perturbed concentrations of CO2, N2O, CH4 
     and returns radiative forcing caused by CO2
@@ -337,7 +329,7 @@ def RF_C(C,
 
     # # # ------------ CODE ------------ # # #
     
-    return (a1*(C-C_0)**(2) + b1*abs(C-C_0) + c1*np.mean([N,N_0]) + K) * np.log(C/C_0)
+    return (F_2x / np.log(2.0)) * np.log(C/C_0)
 
 # Define a function that returns the radiative forcing due to any other trace gases not considered explicitly (eg. CFC-11, CFC12, HFC134a etc.)
 def RF_other_gases(conc,
@@ -403,15 +395,10 @@ def fair_scm(tstep=1.0,
              d=np.array([239.0,4.1]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
-             tau_M=9.25,
-             tau_N=109.0,
              tau_MK_gas=np.array([57.0,143.0,118.0,12.2,13.9,31.3]),
              r0=32.40,
              rC=0.019,
              rT=4.165,
-             m0=11.2,
-             mM=0.000,
-             mT=0.0,
              F_2x=3.74,
              MK_gas_RE=np.array([0.26,0.32,0.30,0.21,0.16,0.17]),
              C_0=278.0,
@@ -419,12 +406,18 @@ def fair_scm(tstep=1.0,
              N_0=270.0,
              MK_gas_0=np.zeros(6),
              ppm_gtc=2.123,
-             ppb_MtCH4=2.838,
-             ppb_MtN2O=7.787,
+             ppb_MtCH4=2.78,
+             ppb_MtN2O=7.559,
              ppb_KtX=np.array([137.37,120.91,187.38,86.47,102.03,153.82])*10**(3)/5.6523,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0,0.0,0.0,0.0,0.0,0.0]],
-             restart_out=False):
+             restart_out=False,
+             MAGICC_model = False,
+             S_OH_CH4 = -0.32,
+             S_T_CH4 = 0.0316,
+             tau_M_0 = 9.6,
+             tau_N_0=121.0,
+             S_N2O = -0.05):
     """
     Run fair forward calculation
 
@@ -503,12 +496,6 @@ def fair_scm(tstep=1.0,
 
     tau:^ (np.array)
       unscaled response time of each carbon pool (yrs)
-	  
-    tau_M:^ (float/int)
-      lifetime of atmospheric CH4 (yrs) (value used for IPCC AR5 metrics)
-	  
-    tau_N:^ (float/int)
-      lifetime of atmospheric N2O (yrs) (value used for IPCC AR5 metrics)
       
     tau_MK_gas:^ (list/np.array)
       lifetimes of selected gases. Order as per MK_gas_emissions (yrs)
@@ -547,10 +534,10 @@ def fair_scm(tstep=1.0,
       ppmv to GtC conversion factor (GtC/ppmv)
 	  
     ppb_MtCH4:^ (float)
-      ppbv to Mt of CH4 conversion factor (MtCH4/ppbv)
+      ppbv to Mt of CH4 conversion factor. Taken from MAGICC (MtCH4/ppbv)
 	  
     ppb_MtN2O:^ (float)
-      ppbv to Mt of N2O conversion factor (MtN2O/ppbv)
+      ppbv to Mt of N2O conversion factor. Taken from MAGICC (MtN2O/ppbv)
       
     ppb_KtX:^ (np.array,list)
       ppbv to Kt of selected Montreal/Kyoto gas conversion factor (KtX/ppbv),
@@ -577,6 +564,26 @@ def fair_scm(tstep=1.0,
 
     restart_out:^ (bool)
       whether to return the final state of the climate system or not
+      
+    MAGICC_model:^ (bool)
+      whether to use approximate MAGICC CH4 and N2O lifetime models
+      
+    S_OH_CH4:^ (float)
+      Sensitivity coefficient to use for MAGICC CH4 lifetime 
+      OH response
+      
+    S_T_CH4:^ (float)
+      Sensitivity coefficient to use for MAGICC CH4 lifetime
+      temperature response (/K)
+      
+    tau_M_0:^ (float)
+      pre-industrial tropospheric methane lifetime (Yrs)
+      
+    tau_N_0:^ (float)
+      pre-industrial N2O lifetime (Yrs)
+      
+    S_N2O:^ (float)
+      sensitivity coefficient of N2O on itself ()
 
     ^ => Keyword argument
 
@@ -677,6 +684,7 @@ def fair_scm(tstep=1.0,
     iirf100 = np.zeros(integ_len)
     M_iirf100 = np.zeros(integ_len)
     M_lifetime = np.zeros(integ_len)
+    N_lifetime = np.zeros(integ_len)
 
     carbon_boxes_shape = (integ_len,4)
     R_i = np.zeros(carbon_boxes_shape)
@@ -723,9 +731,23 @@ def fair_scm(tstep=1.0,
         tau_new = time_scale_sf * tau
         
         # Now do the same thing for Methane OH lifetime:
-        M_iirf100[0] = m0 + mM * (M_pre - M_0) + mT * np.sum(T_j_pre)
-        tau_M_new = (1/M_iirf100[0] + 1/120.0 + 1/150.0 + 1/200.0)**(-1) # add all the Methane lifetime factors to the OH lifetime impact
+        if MAGICC_model:
+            tropOH = S_OH_CH4 * (np.log(M_pre) - np.log(M_0))
+            tau_1 = tau_M_0 * np.exp(-1*tropOH)
+            tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * np.sum(T_j_pre))
+            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+        else:
+            tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1) # add all the Methane lifetime factors to the OH lifetime impact
+            
         M_lifetime[0] = tau_M_new
+        
+        # Finally the same for N2O
+        if MAGICC_model:
+            tau_N_new = tau_N_0 * (N_pre / N_0) ** (S_N2O)
+        else:
+            tau_N_new = tau_N_0
+            
+        N_lifetime[0] = tau_N_new
         
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
@@ -739,8 +761,8 @@ def fair_scm(tstep=1.0,
                 + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
                 + M_0
         
-        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N) \
-                + N_emissions[0]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O \
+        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N_new) \
+                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
                 + N_0
         
         MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
@@ -751,9 +773,9 @@ def fair_scm(tstep=1.0,
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
     # Calculate the radiative forcing due to each gas, storing each in a separate array, then sum them to obtain the total RF
-    co2_RF[0] = RF_C(C_pre,N_pre,C_0,N_0)
-    M_RF[0] = RF_M(M_pre,N_pre,M_0,N_0)
-    N_RF[0] = RF_N(C_pre,M_pre,N_pre,C_0,M_0,N_0)
+    co2_RF[0] = RF_C(C=C_pre,C_0=C_0)
+    M_RF[0] = RF_M(M=M_pre,M_0=M_0,N_0=N_0)
+    N_RF[0] = RF_N(N=N_pre,N_0=N_0)
     MK_gas_RF[0] = RF_other_gases(MK_gas_pre,MK_gas_0,MK_gas_RE)
     
     RF[0] = co2_RF[0] + M_RF[0] + N_RF[0] + np.sum(MK_gas_RF[0]) + other_rf[0]
@@ -785,12 +807,27 @@ def fair_scm(tstep=1.0,
           # Multiply default timescales by scale factor
           tau_new = time_scale_sf * tau
           
-          # Now same calculation for Methane
-          M_iirf100[x] = m0 + mM * (M[x-1] - M_0) + mT*T[x-1]
-          tau_M_new = (1/M_iirf100[x] + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          # Now same calculation for Methane using MAGICC lifetime model
+          
+          if MAGICC_model:
+            tropOH = S_OH_CH4 * (np.log(M[x-1]) - np.log(M_0))
+            tau_1 = tau_M_0 * np.exp(-1*tropOH)
+            tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * T[x-1])
+            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          else:
+            tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          
           M_lifetime[x] = tau_M_new
 
-          # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
+          # Finally the same for N2O (MAGICC/TAR lifetime formula)
+          if MAGICC_model:
+            tau_N_new = tau_N_0 * (N[x-1] / N_0) ** (S_N2O)
+          else:
+            tau_N_new = tau_N_0
+            
+          N_lifetime[x] = tau_N_new
+        
+        # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
                   + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
 
@@ -802,8 +839,8 @@ def fair_scm(tstep=1.0,
                   + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
                   + M_0
           
-          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N) \
-                  + N_emissions[x]*tau_N*(1-np.exp(-tstep/tau_N)) / ppb_MtN2O \
+          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N_new) \
+                  + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
                   + N_0
                   
           MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
@@ -814,9 +851,9 @@ def fair_scm(tstep=1.0,
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
         # Calculate the individual and total radiative forcing using the previous timestep's gas concentrations
-        co2_RF[x] = RF_C(C[x-1],N[x-1],C_0,N_0)
-        M_RF[x] = RF_M(M[x-1],N[x-1],M_0,N_0)
-        N_RF[x] = RF_N(C[x-1],M[x-1],N[x-1],C_0,M_0,N_0)
+        co2_RF[x] = RF_C(C=C[x-1],C_0=C_0)
+        M_RF[x] = RF_M(M=M[x-1],M_0=M_0,N_0=N_0)
+        N_RF[x] = RF_N(N[x-1],N_0=N_0)
         MK_gas_RF[x] = RF_other_gases(MK_gas[x-1],MK_gas_0,MK_gas_RE)
     
         RF[x] = co2_RF[x] + M_RF[x] + N_RF[x] + np.sum(MK_gas_RF[x]) + other_rf[x]
@@ -850,7 +887,7 @@ def fair_scm(tstep=1.0,
     if restart_out:
         return C, T, (R_i[-1],T_j[-1],C_acc[-1])
     else:
-        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out, M_lifetime # Swapaxes back to get separate species timeseries as outputs
+        return C, T, RF, M, N, MK_gas.swapaxes(0,1), out, M_lifetime, N_lifetime # Swapaxes back to get separate species timeseries as outputs
 
 
 def plot_fair(emms,
