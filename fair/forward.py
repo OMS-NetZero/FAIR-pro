@@ -707,8 +707,8 @@ def fair_scm(tstep=1.0,
     C_pre = np.sum(R_i_pre) + C_0
     T_j_pre = in_state[1]
     C_acc_pre = in_state[2]
-    M_pre = in_state[3]
-    N_pre = in_state[4]
+    M_pre = in_state[3] + M_0
+    N_pre = in_state[4] + N_0
     MK_gas_pre = in_state[5] + MK_gas_0
 
     if conc_driven:
