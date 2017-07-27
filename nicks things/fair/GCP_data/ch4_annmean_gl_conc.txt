@@ -1,0 +1,89 @@
+# --------------------------------------------------------------------
+# USE OF NOAA ESRL DATA
+# 
+# These data are made freely available to the public and the
+# scientific community in the belief that their wide dissemination
+# will lead to greater understanding and new scientific insights.
+# The availability of these data does not constitute publication
+# of the data.  NOAA relies on the ethics and integrity of the user to
+# insure that ESRL receives fair credit for their work.  If the data 
+# are obtained for potential use in a publication or presentation, 
+# ESRL should be informed at the outset of the nature of this work.  
+# If the ESRL data are essential to the work, or if an important 
+# result or conclusion depends on the ESRL data, co-authorship
+# may be appropriate.  This should be discussed at an early stage in
+# the work.  Manuscripts using the ESRL data should be sent to ESRL
+# for review before they are submitted for publication so we can
+# insure that the quality and limitations of the data are accurately
+# represented.
+# 
+# Contact:   Ed Dlugokencky (303 497 6228; ed.dlugokencky@noaa.gov)
+# 
+# File Creation:  Wed Jul  5 04:05:03 2017
+# 
+# RECIPROCITY
+# 
+# Use of these data implies an agreement to reciprocate.
+# Laboratories making similar measurements agree to make their
+# own data available to the general public and to the scientific
+# community in an equally complete and easily accessible form.
+# Modelers are encouraged to make available to the community,
+# upon request, their own tools used in the interpretation
+# of the ESRL data, namely well documented model code, transport
+# fields, and additional information necessary for other
+# scientists to repeat the work and to run modified versions.
+# Model availability includes collaborative support for new
+# users of the models.
+# --------------------------------------------------------------------
+#  
+#  
+# See www.esrl.noaa.gov/gmd/ccgg/trends_ch4/ for additional details.
+#  
+# The uncertainty in the global annual mean is estimated using a monte carlo
+# technique that computes 100 global annual averages, each time using a
+# slightly different set of measurement records from the NOAA ESRL cooperative
+# air sampling network.  The reported uncertainties are the standard
+# deviations for each annual average using this technique. Please see
+# Dlugokencky et al., 1994, JGR, vol. 99, 17021-17043, for a complete discussion.
+#
+# CH4 expressed as a mole fraction in dry air, nanomol/mol, abbreviated as ppb
+#
+# NOTE: In general, the data presented for the last year are subject to change,
+# depending on recalibration of the reference gas mixtures used, and other quality
+# control procedures. Occasionally, earlier years may also change for the same
+# reasons.  Usually these changes are minor.
+#
+# year          mean           unc
+  1984       1644.57          0.67
+  1985       1657.30          0.54
+  1986       1669.79          0.73
+  1987       1682.07          0.54
+  1988       1693.14          0.63
+  1989       1704.20          0.56
+  1990       1714.00          0.65
+  1991       1724.63          0.64
+  1992       1735.34          0.55
+  1993       1736.38          0.42
+  1994       1741.85          0.51
+  1995       1748.74          0.43
+  1996       1751.01          0.60
+  1997       1754.35          0.36
+  1998       1765.34          0.70
+  1999       1771.96          0.55
+  2000       1773.02          0.67
+  2001       1771.02          0.56
+  2002       1772.60          0.47
+  2003       1776.93          0.56
+  2004       1776.87          0.56
+  2005       1773.96          0.64
+  2006       1774.69          0.47
+  2007       1781.14          0.57
+  2008       1786.75          0.55
+  2009       1793.28          0.64
+  2010       1798.62          0.78
+  2011       1803.06          0.70
+  2012       1808.18          0.50
+  2013       1813.29          0.62
+  2014       1822.48          0.51
+  2015       1834.00          0.51
+  2016       1842.99          0.51
