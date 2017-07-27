@@ -208,6 +208,7 @@ def fair_scm(tstep=1.0,
     # # # ------------ CODE ------------ # # #
 
     # # # ------------ SET UP OUTPUT TIMESERIES VARIABLES ------------ # # #
+    # Register current time such that the total run time can be displayed if required
     begin_time = time.time()
     # the p_dims variable is used to store the number of different values for each parameter
     if type(input_params) in [np.ndarray,list]:
@@ -393,6 +394,7 @@ def fair_scm(tstep=1.0,
         # Sum the thermal response boxes to get the total temperature anomaly
         T[...,x] = np.sum(T_j[x,...,:],axis=-1)
         
+        # Allows live progress of percentage of completion as well as an estimate of the time remaining for large computations
         if p_dims + rf_dims > 100:
           p = round(((x / (integ_len[-1] - 1.))*100.),0)
           tr = ((((time.time() - start_time) / x) * (integ_len[-1] - 1)) - (time.time() - start_time))
@@ -407,6 +409,7 @@ def fair_scm(tstep=1.0,
 
    
     # # # ------------ OUTPUT ------------ # # #
+    # Prints the total runtime
     if p_dims + rf_dims > 100:
         mins = int((time.time() - begin_time)/60)
         secs = round(((time.time() - begin_time)/60 - int((time.time() - begin_time)/60))*60,0)
