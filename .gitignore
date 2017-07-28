@@ -30,4 +30,4 @@ exercises-figures*
 test.py
 
 # mac system files
-.DS_Store
+*.DS_Store
