@@ -281,6 +281,8 @@ class FAIR(object):
     
       # # ------------ SIDE EFFECTS ------------ # #
       May over-write some input timeseries but warnings are issued if so.
+
+      Updates self.n
       
       # # ------------ EXCEPTIONS ------------ # #
       sublime snippet for exception description in header is 'hexcdesc'
