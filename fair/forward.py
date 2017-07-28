@@ -29,8 +29,40 @@ from scipy.optimize import root
 
 # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
 
-# Define a function which gives the relationship between iIRF_100 and scaling factor, alpha
 def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
+    """
+    Calculate difference between iIRF100 and target iIRF100 for given alpha
+
+    # # ------------ ARGUMENTS ------------ # #
+    alpha: (float/int)
+      carbon pool response time scaling factor (dimensionless)
+
+    a: (np.array)
+      fraction of emitted carbon which goes into each carbon pool (dimensionless)
+
+    tau: (np.array)
+      response time of each carbon pool when alpha = 1 (yrs)
+
+    targ_iirf100: (float/int)
+      target value of the 100-year integrated impulse response (iIRF100)
+
+    # # ------------ RETURN VALUE ------------ # #
+    iirf100_arr - targ_iirf100: (float)
+      difference between target and calculated iIRF100
+    """
+    # # # ------------ IMPORT REQUIRED MODULES ------------ # # #
+    # # ------------ STANDARD LIBRARY ------------ # #
+
+    # # ------------ THIRD PARTY ------------ # #
+    import numpy as np
+    # # ------------ LOCAL APPLICATION/LIBRARY SPECIFIC ------------ # #
+
+    # # # ------------ CODE ------------ # # #
+    iirf100_arr = alpha*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alpha)))))
+    return iirf100_arr   -  targ_iirf100
+
+# Define a varient of the above function that is necessary for quick calculations of multiple radiative forcing profiles.
+def iirf100_interp_funct_multi_rf(alpha,a,tau,targ_iirf100):
     """
     Calculate difference between iIRF100 and target iIRF100 for given alpha
 
@@ -66,7 +98,7 @@ def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
 def fair_scm(tstep=1.0,
              emissions=False,
              other_rf=0.0,
-             co2_conc=False,
+             co2_concs=False,
                                         input_params=np.array([0.33,0.41,1.6,2.75,239.0,4.1,0.2173,0.2240,0.2824,0.2763,1000000,394.4,36.54,4.304,32.40,0.019,4.165,3.74,278.0,2.123,97.0]),
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0],
              restart_out=False):
@@ -225,14 +257,21 @@ def fair_scm(tstep=1.0,
         other_rf = other_rf[...,np.newaxis].transpose()
       else:
         rf_dims = other_rf.shape[0]
+    
+    elif type(other_rf) in [np.ndarray,float]:
+        rf_dims = 1
+        if type(emissions) in [np.ndarray,float]:
+            other_rf = np.full([1,emissions.size],other_rf)
+        else:
+            other_rf = np.full([1,co2_concs.size],other_rf)
         
-    # the integ_len variable is used to store the length of our timeseries aling with rf_dims and p_dims such that empty parameters of the right dimensions, size and shape can be easily made
+    # the integ_len variable is used to store the length of our timeseries along with rf_dims and p_dims such that empty parameters of the right dimensions, size and shape can be easily made
     # by default FAIR is not concentration driven
     conc_driven=False
     # here we check if FAIR is emissions driven
     if type(emissions) in [np.ndarray,list]:
         integ_len = tuple([rf_dims] + [p_dims] + [len(emissions)])
-        if (type(other_rf) in [np.ndarray,list]) and (other_rf.shape[-1]!=integ_len[2]):
+        if (type(other_rf) in [np.ndarray,list]) and (other_rf.shape[-1]!=integ_len[-1]):
             raise ValueError("The emissions and other_rf timeseries don't have the same length")
         elif type(other_rf) in [int,float]:
             other_rf = np.full(integ_len,other_rf)
@@ -250,9 +289,9 @@ def fair_scm(tstep=1.0,
     elif type(other_rf) in [np.ndarray,list]:
         integ_len = tuple([rf_dims] + [p_dims] + [other_rf.shape[-1]])
         if type(emissions) in [int,float]:
-            emissions = np.full(integ_len,emissions)
+            emissions = np.full(integ_len[-1],emissions)
         else:
-            emissions = np.zeros(integ_len)
+            emissions = np.zeros(integ_len[-1])
 
     else:
         raise ValueError("Neither emissions, co2_concs or other_rf is defined as a timeseries")
@@ -329,7 +368,13 @@ def fair_scm(tstep=1.0,
                   iirf100[i,j,0] = iirf100_max[j]
           
         # Determine a solution for alpha using scipy's root finder
-            time_scale_sf[i,:,0] = (root(iirf100_interp_funct,0.16,args=(a,tau,iirf100[i,:,0])))['x']
+        # First check which iirf100_interp_funct needs to be called, i.e. do we have multiple radiative forcing profiles and hence do we need to call that specific function?
+        if rf_dims == 1:
+            for j in range(0,p_dims):
+                time_scale_sf[0,j,0] = (root(iirf100_interp_funct,0.16,args=(a[j],tau[j],iirf100[0,j,0])))['x']
+        else:
+            for i in range(0,rf_dims):
+                time_scale_sf[i,:,0] = (root(iirf100_interp_funct_multi_rf,0.16,args=(a,tau,iirf100[i,:,0])))['x']
 
         # Multiply default timescales by scale factor
         tau_new = tau * time_scale_sf[...,0,np.newaxis]
@@ -346,7 +391,7 @@ def fair_scm(tstep=1.0,
 
     # Calculate the radiative forcing using the previous timestep's CO2 concentration
     RF[...,0] = (F_2x/np.log(2.)) * np.log(C_pre/C_0) + other_rf[:,0,np.newaxis]
-    
+        
     # Update the thermal response boxes
     T_j[0,...,:] = RF[...,0,np.newaxis]*q*(1-np.exp((-tstep)/d)) + T_j_pre*np.exp(-tstep/d)
 
@@ -358,7 +403,7 @@ def fair_scm(tstep=1.0,
     
     for x in range(1,integ_len[-1]):
         if conc_driven:
-          C[x] = co2_concs[x]
+          C[...,x] = co2_concs[x]
         
         else:
           # Calculate the parametrised iIRF and check if it is over the maximum 
@@ -370,8 +415,14 @@ def fair_scm(tstep=1.0,
                   iirf100[i,j,x] = iirf100_max[j]
             
           # Determine a solution for alpha using scipy's root finder
-            time_scale_sf[i,:,x] = (root(iirf100_interp_funct,time_scale_sf[i,:,x-1],args=(a,tau,iirf100[i,:,x])))['x']
+          if rf_dims == 1:
+              for j in range(0,p_dims):
+                  time_scale_sf[0,j,x] = (root(iirf100_interp_funct,time_scale_sf[0,j,x-1],args=(a[j],tau[j],iirf100[0,j,x])))['x']
+          else:
+              for i in range(0,rf_dims):
+                  time_scale_sf[i,:,x] = (root(iirf100_interp_funct_multi_rf,time_scale_sf[i,:,x-1],args=(a,tau,iirf100[i,:,x])))['x'] 
 
+                
           # Multiply default timescales by scale factor
           tau_new = time_scale_sf[...,x,np.newaxis] * tau
 
@@ -386,7 +437,8 @@ def fair_scm(tstep=1.0,
           C_acc[...,x] =  C_acc[...,x-1] + emissions[x] * tstep - (C[...,x]-C[...,x-1]) * ppm_gtc
 
         # Calculate the radiative forcing using the previous timestep's CO2 concentration
-        RF[...,x] = (F_2x/np.log(2.)) * np.log((C[...,x-1]) /C_0) + other_rf[:,x,np.newaxis]
+
+        RF[...,x] = (F_2x/np.log(2.)) * np.log((C[...,x-1]) /C_0) + other_rf[:,x,np.newaxis]    
 
         # Update the thermal response boxes
         T_j[x,...,:] = T_j[x-1,...,:]*np.exp(-tstep/d) + RF[...,x,np.newaxis]*q*(1-np.exp(-tstep/d))
@@ -405,8 +457,6 @@ def fair_scm(tstep=1.0,
               print '{0}\r'.format('Completed: %.0f%%. Time remaining: %.0f minute and %.0f seconds.' % (p, tr_mins, tr_secs)),
           else:
               print '{0}\r'.format('Completed: %.0f%%. Time remaining: %.0f minutes and %.0f seconds.' % (p, tr_mins, tr_secs)),
-
-
    
     # # # ------------ OUTPUT ------------ # # #
     # Prints the total runtime
