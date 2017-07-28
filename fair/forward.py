@@ -384,33 +384,34 @@ def fair_scm(tstep=1.0,
              emissions=False,
              M_emissions=False,
              N_emissions=False,
-             MK_gas_emissions_def=[False,False,False,False,False,False],
+             MK_gas_emissions_def=[False],
+             MK_gas_names = [],
              other_rf=0.0,
              co2_concs=False,
              M_concs=False,
              N_concs=False,
-             MK_gas_concs_def=[False,False,False,False,False,False],
+             MK_gas_concs_def=[False],
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
              a=np.array([0.2173,0.2240,0.2824,0.2763]),
              tau=np.array([1000000,394.4,36.54,4.304]),
-             tau_MK_gas=np.array([57.0,143.0,118.0,12.2,13.9,31.3]),
+             tau_MK_gas=np.array([1.0]),
              r0=32.40,
              rC=0.019,
              rT=4.165,
              F_2x=3.74,
-             MK_gas_RE=np.array([0.26,0.32,0.30,0.21,0.16,0.17]),
+             MK_gas_RE=np.array([0.0]),
              C_0=278.0,
              M_0=722.0,
              N_0=270.0,
-             MK_gas_0=np.zeros(6),
+             MK_gas_0=np.zeros(1),
              ppm_gtc=2.123,
              ppb_MtCH4=2.78,
              ppb_MtN2O=7.559,
-             ppb_KtX=np.array([137.37,120.91,187.38,86.47,102.03,153.82])*10**(3)/5.6523,
+             ppb_KtX=np.array([1.0])*10**(3)/5.6523,
              iirf100_max=97.0,
-             in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0,0.0,0.0,0.0,0.0,0.0]],
+             in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0]],
              restart_out=False,
              MAGICC_model = False,
              S_OH_CH4 = -0.29,
@@ -449,10 +450,12 @@ def fair_scm(tstep=1.0,
       2D array containing selected Montreal/Kyoto gas emissions 
       timeseries (KtX/yr). If any element within scalar then emissions are 
       assumed to be constant throughout the run for that species. 
-      If false then these emissions aren't used. The gases (currently) used are: 
-      [CFC-11,CFC-12,CFC-113,HCFC-22,HCFC-134,CCl4] in that order. The array
-      must be in the format: [[CFC-11(0),CFC-11(1),...],[CFC-12(0),...],...]
-      ie. gas species 0th dimension, timeseries 1st dimension.
+      If false then these emissions aren't used. Needs to be inputted in the
+      format [[gas1 timeseries],[gas2 timeseries],...].
+      
+    MK_gas_names:^ (list)
+      List of other gas names that will be included. This must be in the same
+      order as all the other other gas variables.
 
     other_rf:^ (np.array/list/float/int)
       Non-CO_2 radiative forcing timeseries (W/m^2). If a scalar then other_rf 
@@ -473,10 +476,8 @@ def fair_scm(tstep=1.0,
     MK_gas_concs:^ (np.array/list)
       2D array containing selected Montreal/Kyoto gas concentrations 
       timeseries (ppbv). If MK_gas_emissions are supplied then NK_gas_concs 
-      is not used. The gases (currently) used are: 
-      [CFC-11,CFC-12,CFC-113,HCFC-22,HCFC-134,CCl4] in that order. The array
-      must be in the format: [[CFC-11(0),CFC-11(1),...],[CFC-12(0),...],...]
-      ie. gas species 0th dimension, timeseries 1st dimension.
+      is not used. Needs to be inputted in the format 
+      [[gas1 timeseries],[gas2 timeseries],...].
 
     q:^ (np.array)
       response of each thermal box to radiative forcing (K/(W/m^2)). 
@@ -498,7 +499,7 @@ def fair_scm(tstep=1.0,
       unscaled response time of each carbon pool (yrs)
       
     tau_MK_gas:^ (list/np.array)
-      lifetimes of selected gases. Order as per MK_gas_emissions (yrs)
+      lifetimes of selected gases. Order same as MK_gas_emissions (yrs)
 
     r0:^ (float)
       pre-industrial 100-year integrated impulse response (iIRF100) (yrs)
@@ -528,7 +529,7 @@ def fair_scm(tstep=1.0,
       
     MK_gas_0:^ (np.array/list)
       pre-industrial atmospheric concentrations of selected Montreal/Kyoto
-      gases (ppbv), order as MK_gas_emissions
+      gases (ppbv), order as MK_gas_emissions.
 
     ppm_gtc:^ (float)
       ppmv to GtC conversion factor (GtC/ppmv)
@@ -541,7 +542,7 @@ def fair_scm(tstep=1.0,
       
     ppb_KtX:^ (np.array,list)
       ppbv to Kt of selected Montreal/Kyoto gas conversion factor (KtX/ppbv),
-      order same as MK_gas_emissions.
+      order same as MK_gas_emissions. Takes inputs of molar mass (g).
 
     iirf100_max:^ (float)
       maximum allowed value of iIRF100 (keeps the model stable) (yrs)
@@ -691,7 +692,7 @@ def fair_scm(tstep=1.0,
     C = np.zeros(integ_len)
     M = np.zeros(integ_len)
     N = np.zeros(integ_len)
-    MK_gas = np.zeros((integ_len,6))
+    MK_gas = np.zeros((integ_len,len(MK_gas_names)))
     
     thermal_boxes_shape = (integ_len,2)
     T_j = np.zeros(thermal_boxes_shape)
@@ -700,7 +701,7 @@ def fair_scm(tstep=1.0,
     co2_RF = np.zeros(integ_len)
     M_RF = np.zeros(integ_len)
     N_RF = np.zeros(integ_len)
-    MK_gas_RF = np.zeros((integ_len,6))
+    MK_gas_RF = np.zeros((integ_len,len(MK_gas_names)))
 
     # # # ------------ FIRST TIMESTEP ------------ # # #
     R_i_pre = in_state[0]
@@ -749,6 +750,18 @@ def fair_scm(tstep=1.0,
             
         N_lifetime[0] = tau_N_new
         
+        # Add a temerature dependence for the halogenated gases
+        
+        # First we set the temperature sensitivities: 1.0 for Hydrogenated and 0.78 otherwise (Hydrogenated have a positive feedback on their lifetime due to OH depletion)
+        S_MK_gas = np.full(len(MK_gas_names),1.0)
+        for i,x in enumerate(MK_gas_names):
+            if 'H' in x:
+                S_MK_gas[i] = 1.0
+            else:
+                S_MK_gas[i] = 0.78
+        
+        tau_MK_gas_new = tau_MK_gas * S_MK_gas**(np.sum(T_j_pre))
+
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
         R_i[0] = R_i_pre*np.exp(-tstep/tau_new) \
@@ -758,13 +771,13 @@ def fair_scm(tstep=1.0,
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
         M[0] = (M_pre)*np.exp(-tstep/tau_M_new) \
-                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
+                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4
         
         N[0] = (N_pre)*np.exp(-tstep/tau_N_new) \
-                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
+                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O
         
-        MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
-                     + MK_gas_emissions[0]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
+        MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas_new) \
+                     + MK_gas_emissions[0]*tau_MK_gas_new*(1-np.exp(-tstep/tau_MK_gas_new)) / ppb_KtX \
                      + MK_gas_0
 
         # Calculate the additional carbon uptake
@@ -824,7 +837,10 @@ def fair_scm(tstep=1.0,
             tau_N_new = tau_N_0
             
           N_lifetime[x] = tau_N_new
-        
+          
+          # Add a temerature dependence for the halogenated gases
+          tau_MK_gas_new = tau_MK_gas * S_MK_gas**(T[x-1])
+
         # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
                   + (emissions[x,np.newaxis])*a*tau_new*(1-np.exp(-tstep/tau_new)) / ppm_gtc
@@ -834,13 +850,13 @@ def fair_scm(tstep=1.0,
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
           M[x] = (M[x-1])*np.exp(-tstep/tau_M_new) \
-                  + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
+                  + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4
           
           N[x] = (N[x-1])*np.exp(-tstep/tau_N_new) \
-                  + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
+                  + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O
                   
-          MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
-                     + MK_gas_emissions[x]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
+          MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas_new) \
+                     + MK_gas_emissions[x]*tau_MK_gas_new*(1-np.exp(-tstep/tau_MK_gas_new)) / ppb_KtX \
                      + MK_gas_0
 
           # Calculate the additional carbon uptake
@@ -866,15 +882,15 @@ def fair_scm(tstep=1.0,
     MK_gas_RF = MK_gas_RF.swapaxes(0,1)
     
     # Creating the dictionaries to then be nested within one output
-    emissions_out = {'CO2' : emissions, 'CH4' : M_emissions, 'N2O' : N_emissions,
-                     'CFC11' : MK_gas_emissions[0], 'CFC12' : MK_gas_emissions[1], 'CFC113' : MK_gas_emissions[2], 
-                     'HCFC22' : MK_gas_emissions[3], 'HFC134a' : MK_gas_emissions[4], 'CCl4' : MK_gas_emissions[5]}
-    concentration_out = {'CO2' : C, 'CH4' : M, 'N2O' : N ,
-                         'CFC11' : MK_gas[0], 'CFC12' : MK_gas[1], 'CFC113' : MK_gas[2], 'HCFC22' : MK_gas[3], 'HFC134a' : MK_gas[4], 'CCl4' : MK_gas[5]}
-    forcing_out = {'total' : RF, 'other' : other_rf, 'CO2' : co2_RF, 'CH4' : M_RF, 'N2O' : N_RF,
-                   'CFC11' : MK_gas_RF[0], 'CFC12' : MK_gas_RF[1], 'CFC113' : MK_gas_RF[2], 
-                   'HCFC22' : MK_gas_RF[3], 'HFC134a' : MK_gas_RF[4], 'CCl4' : MK_gas_RF[5]}
+    emissions_out = {'CO2' : emissions, 'CH4' : M_emissions, 'N2O' : N_emissions,}
+    concentration_out = {'CO2' : C, 'CH4' : M, 'N2O' : N}
+    forcing_out = {'total' : RF, 'other' : other_rf, 'CO2' : co2_RF, 'CH4' : M_RF, 'N2O' : N_RF}
     lifetime_out = {'CH4' : M_lifetime, 'N2O': N_lifetime}
+    
+    for i,x in enumerate(MK_gas_names):
+        emissions_out[x] = MK_gas_emissions[i]
+        concentration_out[x] = MK_gas[i]
+        forcing_out[x] = MK_gas_RF[i]
     
     # Create the output dictionary
     out = {'emissions' : emissions_out , 'concentration' : concentration_out , 'forcing' : forcing_out , 'lifetime' : lifetime_out , 'temperature' : T} 
