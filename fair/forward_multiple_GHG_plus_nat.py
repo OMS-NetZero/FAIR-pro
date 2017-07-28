@@ -371,7 +371,7 @@ def fair_scm(tstep=1.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0,0.0,0.0,0.0,0.0,0.0]],
              restart_out=False,
              MAGICC_model = False,
-             S_OH_CH4 = -0.32,
+             S_OH_CH4 = -0.29,
              S_T_CH4 = 0.0316,
              tau_M_0 = 9.6,
              tau_N_0=121.0,
@@ -688,13 +688,11 @@ def fair_scm(tstep=1.0,
         C[0] = np.sum(R_i[0]) + C_0
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
-        M[0] = (M_pre-M_0)*np.exp(-tstep/tau_M_new) \
-                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
-                + M_0
-        
-        N[0] = (N_pre-N_0)*np.exp(-tstep/tau_N_new) \
-                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
-                + N_0
+        M[0] = (M_pre)*np.exp(-tstep/tau_M_new) \
+                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4
+            
+        N[0] = (N_pre)*np.exp(-tstep/tau_N_new) \
+                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O
         
         MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
                      + MK_gas_emissions[0]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
@@ -766,13 +764,11 @@ def fair_scm(tstep=1.0,
           C[x] = np.sum(R_i[x]) + C_0
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
-          M[x] = (M[x-1]-M_0)*np.exp(-tstep/tau_M_new) \
+          M[x] = (M[x-1])*np.exp(-tstep/tau_M_new) \
                   + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
-                  + M_0
           
-          N[x] = (N[x-1]-N_0)*np.exp(-tstep/tau_N_new) \
+          N[x] = (N[x-1])*np.exp(-tstep/tau_N_new) \
                   + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
-                  + N_0
                   
           MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas) \
                      + MK_gas_emissions[x]*tau_MK_gas*(1-np.exp(-tstep/tau_MK_gas)) / ppb_KtX \
