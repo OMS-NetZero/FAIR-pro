@@ -29,3 +29,5 @@ exercises-figures*
 # junk py file
 test.py
 
+# mac system files
+*.DS_Store

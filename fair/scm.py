@@ -281,6 +281,8 @@ class FAIR(object):
     
       # # ------------ SIDE EFFECTS ------------ # #
       May over-write some input timeseries but warnings are issued if so.
+
+      Updates self.n
       
       # # ------------ EXCEPTIONS ------------ # #
       sublime snippet for exception description in header is 'hexcdesc'
@@ -1067,6 +1069,8 @@ class FAIR(object):
         print "-----------------"
         print "F_2x = {0} W/m^2".format(self.F_2x)
         print "C_0 = {0} ppmv".format(self.C_0)
+        print "TCR = {0} K".format(self.tcrecs[0])
+        print "ECS = {0} K".format(self.tcrecs[1])
         print ""
         print "Output parameters"
         print "-----------------"
