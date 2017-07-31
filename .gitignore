@@ -25,3 +25,6 @@ index.py
 *.png
 *.pdf
 exercises-figures*
+
+# test file
+test.py
