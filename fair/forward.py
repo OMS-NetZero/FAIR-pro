@@ -407,18 +407,21 @@ def fair_scm(tstep=1.0,
              N_0=270.0,
              MK_gas_0=np.zeros(1),
              ppm_gtc=2.123,
-             ppb_MtCH4=2.78,
-             ppb_MtN2O=7.559,
-             ppb_KtX=np.array([1.0])*10**(3)/5.6523,
+             ppb_MtCH4=2.824,
+             ppb_MtN2O=7.767,
+             ppb_KtX=np.array([1.0])*10**(3)/5.666,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0]],
              restart_out=False,
              MAGICC_model = False,
-             S_OH_CH4 = -0.29,
-             S_T_CH4 = 0.0316,
-             tau_M_0 = 9.6,
-             tau_N_0=121.0,
-             S_N2O = -0.05):
+             Lin_model = False,
+             S_OH_CH4 = 0.32,
+             S_T_CH4 = -9.0,
+             tau_M_0 = 9.0,
+             tau_N_0= 121.0,
+             S_N2O = -0.08,
+             S_MK_gas = np.array([1.0]),
+             MK_gas_OH = np.array([1.0])):
     """
     Run fair forward calculation
 
@@ -569,6 +572,9 @@ def fair_scm(tstep=1.0,
     MAGICC_model:^ (bool)
       whether to use approximate MAGICC CH4 and N2O lifetime models
       
+    Lin_model:^ (bool)
+      whether to use my simple linear models for CH4/N2O lifetimes
+      
     S_OH_CH4:^ (float)
       Sensitivity coefficient to use for MAGICC CH4 lifetime 
       OH response
@@ -585,6 +591,13 @@ def fair_scm(tstep=1.0,
       
     S_N2O:^ (float)
       sensitivity coefficient of N2O on itself ()
+      
+    S_MK_gas:^ (np.array)
+      sensitivity of the MK gases to temperature (array form)
+      
+    MK_gas_OH:^ (np.array)
+      array containing 1s and 0s that chooses whether to include
+      OH feedback on the gas lifetime- 1 for hydrogenated, 0 otherwise.
 
     ^ => Keyword argument
 
@@ -737,6 +750,9 @@ def fair_scm(tstep=1.0,
             tau_1 = tau_M_0 * np.exp(-1*tropOH)
             tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * np.sum(T_j_pre))
             tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+        elif Lin_model:
+            tau_CH4_trop = tau_M_0 * (M_pre / M_0) ** S_OH_CH4 * ((280.+np.sum(T_j_pre)) / 280.) ** S_T_CH4
+            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
         else:
             tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1) # add all the Methane lifetime factors to the OH lifetime impact
             
@@ -745,22 +761,16 @@ def fair_scm(tstep=1.0,
         # Finally the same for N2O
         if MAGICC_model:
             tau_N_new = tau_N_0 * (N_pre / N_0) ** (S_N2O)
+        elif Lin_model:
+            tau_N_new = tau_N_0 * (N_pre / N_0) ** (S_N2O)
         else:
             tau_N_new = tau_N_0
             
         N_lifetime[0] = tau_N_new
         
-        # Add a temerature dependence for the halogenated gases
+        # Add a temerature dependence for the un-halogenated gases
         
-        # First we set the temperature sensitivities: 1.0 for Hydrogenated and 0.78 otherwise (Hydrogenated have a positive feedback on their lifetime due to OH depletion)
-        S_MK_gas = np.full(len(MK_gas_names),1.0)
-        for i,x in enumerate(MK_gas_names):
-            if 'H' in x:
-                S_MK_gas[i] = 1.0
-            else:
-                S_MK_gas[i] = 0.78
-        
-        tau_MK_gas_new = tau_MK_gas * S_MK_gas**(np.sum(T_j_pre))
+        tau_MK_gas_new = tau_MK_gas * ((280.+np.sum(T_j_pre)) / 280.)**S_MK_gas * ((M_pre / M_0) ** S_OH_CH4) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
@@ -770,16 +780,16 @@ def fair_scm(tstep=1.0,
         C[0] = np.sum(R_i[0]) + C_0
         
         # Compute the concentrations of the other GHGs from the decay of the previous year and yearly emissions (NB. M_pre - M_0 is the concentration anomaly)
-        M[0] = (M_pre)*np.exp(-tstep/tau_M_new) \
-                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4
+        M[0] = (M_pre - M_0)*np.exp(-tstep/tau_M_new) \
+                + M_emissions[0]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
+                + M_0
         
         N[0] = (N_pre)*np.exp(-tstep/tau_N_new) \
-                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O
+                + N_emissions[0]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
         
-        MK_gas[0] = (MK_gas_pre-MK_gas_0)*np.exp(-tstep/tau_MK_gas_new) \
+        MK_gas[0] = (MK_gas_pre)*np.exp(-tstep/tau_MK_gas_new) \
                      + MK_gas_emissions[0]*tau_MK_gas_new*(1-np.exp(-tstep/tau_MK_gas_new)) / ppb_KtX \
-                     + MK_gas_0
-
+                     
         # Calculate the additional carbon uptake
         C_acc[0] =  C_acc_pre + emissions[0] - (C[0]-(np.sum(R_i_pre) + C_0)) * ppm_gtc
 
@@ -819,11 +829,14 @@ def fair_scm(tstep=1.0,
           tau_new = time_scale_sf * tau
           
           # Now same calculation for Methane using MAGICC lifetime model
-          
+                    
           if MAGICC_model:
             tropOH = S_OH_CH4 * (np.log(M[x-1]) - np.log(M_0))
             tau_1 = tau_M_0 * np.exp(-1*tropOH)
             tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * T[x-1])
+            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          elif Lin_model:
+            tau_CH4_trop = tau_M_0 * (M[x-1] / M_0) ** S_OH_CH4 * ((T[x-1]+280.) / 280.) ** S_T_CH4
             tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
           else:
             tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
@@ -833,13 +846,15 @@ def fair_scm(tstep=1.0,
           # Finally the same for N2O (MAGICC/TAR lifetime formula)
           if MAGICC_model:
             tau_N_new = tau_N_0 * (N[x-1] / N_0) ** (S_N2O)
+          elif Lin_model:
+            tau_N_new = tau_N_0 * (N[x-1] / N_0) ** (S_N2O)
           else:
             tau_N_new = tau_N_0
             
           N_lifetime[x] = tau_N_new
           
-          # Add a temerature dependence for the halogenated gases
-          tau_MK_gas_new = tau_MK_gas * S_MK_gas**(T[x-1])
+          # Add a temerature dependence for the un-halogenated gases
+          tau_MK_gas_new = tau_MK_gas * ((T[x-1]+280.) / 280.)**S_MK_gas * ((M[x-1] / M_0) ** S_OH_CH4) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
@@ -849,16 +864,16 @@ def fair_scm(tstep=1.0,
           C[x] = np.sum(R_i[x]) + C_0
           
           # Compute the concentrations for the other GHGs from the decay of previous year and yearly emissions (NB. M[x-1] - M_0 is the concentration anomaly)
-          M[x] = (M[x-1])*np.exp(-tstep/tau_M_new) \
-                  + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4
+          M[x] = (M[x-1] - M_0)*np.exp(-tstep/tau_M_new) \
+                  + M_emissions[x]*tau_M_new*(1-np.exp(-tstep/tau_M_new)) / ppb_MtCH4 \
+                  + M_0
           
           N[x] = (N[x-1])*np.exp(-tstep/tau_N_new) \
-                  + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O
+                  + N_emissions[x]*tau_N_new*(1-np.exp(-tstep/tau_N_new)) / ppb_MtN2O \
                   
-          MK_gas[x] = (MK_gas[x-1]-MK_gas_0)*np.exp(-tstep/tau_MK_gas_new) \
+          MK_gas[x] = (MK_gas[x-1])*np.exp(-tstep/tau_MK_gas_new) \
                      + MK_gas_emissions[x]*tau_MK_gas_new*(1-np.exp(-tstep/tau_MK_gas_new)) / ppb_KtX \
-                     + MK_gas_0
-
+                     
           # Calculate the additional carbon uptake
           C_acc[x] =  C_acc[x-1] + emissions[x] * tstep - (C[x]-C[x-1]) * ppm_gtc
 
