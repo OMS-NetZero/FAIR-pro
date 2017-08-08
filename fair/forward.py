@@ -770,7 +770,7 @@ def fair_scm(tstep=1.0,
         
         # Add a temerature dependence for the un-halogenated gases
         
-        tau_MK_gas_new = tau_MK_gas * ((280.+np.sum(T_j_pre)) / 280.)**S_MK_gas * ((M_pre / M_0) ** S_OH_CH4) ** MK_gas_OH
+        tau_MK_gas_new = tau_MK_gas * ((280.+np.sum(T_j_pre)) / 280.)**S_MK_gas * (M_pre / M_0) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
@@ -854,7 +854,7 @@ def fair_scm(tstep=1.0,
           N_lifetime[x] = tau_N_new
           
           # Add a temerature dependence for the un-halogenated gases
-          tau_MK_gas_new = tau_MK_gas * ((T[x-1]+280.) / 280.)**S_MK_gas * ((M[x-1] / M_0) ** S_OH_CH4) ** MK_gas_OH
+          tau_MK_gas_new = tau_MK_gas * ((T[x-1]+280.) / 280.)**S_MK_gas * (M[x-1] / M_0) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
