@@ -378,7 +378,7 @@ def RF_other_gases(conc,
     # # # ------------ CODE ------------ # # #
     
     return RE*(conc-conc_0)
-
+    
 # Define the FAIR simple climate model function
 def fair_scm(tstep=1.0,
              emissions=False,
@@ -404,21 +404,23 @@ def fair_scm(tstep=1.0,
              MK_gas_RE=np.array([0.0]),
              C_0=278.0,
              M_0=722.0,
-             N_0=270.0,
+             M_now=1842.72,
+             N_0=273.0,
+             N_now=328.84,
              MK_gas_0=np.zeros(1),
              ppm_gtc=2.123,
              ppb_MtCH4=2.824,
              ppb_MtN2O=7.767,
-             ppb_KtX=np.array([1.0])*10**(3)/5.666,
+             ppb_KtX=np.array([1.0])*10**(3)/5.80,
              iirf100_max=97.0,
              in_state=[[0.0,0.0,0.0,0.0],[0.0,0.0],0.0,0.0,0.0,[0.0]],
+             T_now=1.0167,
              restart_out=False,
-             MAGICC_model = False,
              Lin_model = False,
-             S_OH_CH4 = 0.32,
-             S_T_CH4 = -9.0,
-             tau_M_0 = 9.0,
-             tau_N_0= 121.0,
+             S_CH4_CH4 = 0.31,
+             S_T_CH4 = -11.0,
+             tau_M_now = 9.1,
+             tau_N_now= 131.0,
              S_N2O = -0.08,
              S_MK_gas = np.array([1.0]),
              MK_gas_OH = np.array([1.0])):
@@ -526,9 +528,15 @@ def fair_scm(tstep=1.0,
 	  
     M_0:^ (float)
       pre-industrial atmospheric CH4 concentrations (ppbv)
+      
+    M_now:^ (float)
+      Current atmospheric CH4 concentration (ppbv); for lifetime
 	  
     N_0:^ (float)
       pre-industrial atmospheric N2O concentrations (ppbv)
+      
+    N_now:^ (float)
+      Current atmospheric N2O concentration (ppbv); for lifetime
       
     MK_gas_0:^ (np.array/list)
       pre-industrial atmospheric concentrations of selected Montreal/Kyoto
@@ -566,28 +574,28 @@ def fair_scm(tstep=1.0,
         [5]: (array)
           Montreal/Kyoto gas concentrations (ppbv)
 
+    T_now:^ (float)
+      Current temperature anomaly (K); used for CH4 lifetime
+
     restart_out:^ (bool)
       whether to return the final state of the climate system or not
-      
-    MAGICC_model:^ (bool)
-      whether to use approximate MAGICC CH4 and N2O lifetime models
-      
+
     Lin_model:^ (bool)
       whether to use my simple linear models for CH4/N2O lifetimes
-      
-    S_OH_CH4:^ (float)
+
+    S_CH4_CH4:^ (float)
       Sensitivity coefficient to use for MAGICC CH4 lifetime 
-      OH response
+      self response ()
       
     S_T_CH4:^ (float)
       Sensitivity coefficient to use for MAGICC CH4 lifetime
-      temperature response (/K)
+      temperature response ()
       
-    tau_M_0:^ (float)
-      pre-industrial tropospheric methane lifetime (Yrs)
+    tau_M_now:^ (float)
+      Current tropospheric methane lifetime (Yrs)
       
-    tau_N_0:^ (float)
-      pre-industrial N2O lifetime (Yrs)
+    tau_N_now:^ (float)
+      Current N2O lifetime (Yrs)
       
     S_N2O:^ (float)
       sensitivity coefficient of N2O on itself ()
@@ -745,32 +753,27 @@ def fair_scm(tstep=1.0,
         tau_new = time_scale_sf * tau
         
         # Now do the same thing for Methane OH lifetime:
-        if MAGICC_model:
-            tropOH = S_OH_CH4 * (np.log(M_pre) - np.log(M_0))
-            tau_1 = tau_M_0 * np.exp(-1*tropOH)
-            tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * np.sum(T_j_pre))
-            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
-        elif Lin_model:
-            tau_CH4_trop = tau_M_0 * (M_pre / M_0) ** S_OH_CH4 * ((280.+np.sum(T_j_pre)) / 280.) ** S_T_CH4
-            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+        if Lin_model:
+            tau_M_new = tau_M_now \
+            * (M_pre / M_now) ** S_CH4_CH4 \
+            * ((251.9+0.94*np.sum(T_j_pre)) / (251.9+0.94*T_now)) ** S_T_CH4
+            #tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
         else:
-            tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1) # add all the Methane lifetime factors to the OH lifetime impact
+            tau_M_new = tau_M_now # add all the Methane lifetime factors to the OH lifetime impact
             
         M_lifetime[0] = tau_M_new
         
         # Finally the same for N2O
-        if MAGICC_model:
-            tau_N_new = tau_N_0 * (N_pre / N_0) ** (S_N2O)
-        elif Lin_model:
-            tau_N_new = tau_N_0 * (N_pre / N_0) ** (S_N2O)
+        if Lin_model:
+            tau_N_new = tau_N_now * (N_pre / N_now) ** (S_N2O)
         else:
-            tau_N_new = tau_N_0
+            tau_N_new = tau_N_now
             
         N_lifetime[0] = tau_N_new
         
         # Add a temerature dependence for the un-halogenated gases
         
-        tau_MK_gas_new = tau_MK_gas * ((280.+np.sum(T_j_pre)) / 280.)**S_MK_gas * (M_pre / M_0) ** MK_gas_OH
+        tau_MK_gas_new = tau_MK_gas * ((251.9+0.94*np.sum(T_j_pre)) / 251.9)**S_MK_gas * (M_pre / M_0) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the 
         # previous year and the emisisons
@@ -828,33 +831,27 @@ def fair_scm(tstep=1.0,
           # Multiply default timescales by scale factor
           tau_new = time_scale_sf * tau
           
-          # Now same calculation for Methane using MAGICC lifetime model
-                    
-          if MAGICC_model:
-            tropOH = S_OH_CH4 * (np.log(M[x-1]) - np.log(M_0))
-            tau_1 = tau_M_0 * np.exp(-1*tropOH)
-            tau_CH4_trop = tau_M_0 / ((tau_M_0 / tau_1) + S_T_CH4 * T[x-1])
-            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
-          elif Lin_model:
-            tau_CH4_trop = tau_M_0 * (M[x-1] / M_0) ** S_OH_CH4 * ((T[x-1]+280.) / 280.) ** S_T_CH4
-            tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+          # Now same calculation for Methane using MAGICC lifetime model , air temp formula from Holmes et al 2013
+          if Lin_model:
+            tau_M_new = tau_M_now \
+            * (M[x-1] / M_now) ** S_CH4_CH4 \
+            * ((251.9+0.94*T[x-1]) / (251.9+0.94*T_now)) ** S_T_CH4
+            #tau_M_new = (1/tau_CH4_trop + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
           else:
-            tau_M_new = (1/tau_M_0 + 1/120.0 + 1/150.0 + 1/200.0)**(-1)
+            tau_M_new = tau_M_now
           
           M_lifetime[x] = tau_M_new
 
           # Finally the same for N2O (MAGICC/TAR lifetime formula)
-          if MAGICC_model:
-            tau_N_new = tau_N_0 * (N[x-1] / N_0) ** (S_N2O)
-          elif Lin_model:
-            tau_N_new = tau_N_0 * (N[x-1] / N_0) ** (S_N2O)
+          if Lin_model:
+            tau_N_new = tau_N_now * (N[x-1] / N_now) ** (S_N2O)
           else:
-            tau_N_new = tau_N_0
+            tau_N_new = tau_N_now
             
           N_lifetime[x] = tau_N_new
           
           # Add a temerature dependence for the un-halogenated gases
-          tau_MK_gas_new = tau_MK_gas * ((T[x-1]+280.) / 280.)**S_MK_gas * (M[x-1] / M_0) ** MK_gas_OH
+          tau_MK_gas_new = tau_MK_gas * ((251.9+0.94*T[x-1]) / 251.9)**S_MK_gas * (M[x-1] / M_0) ** MK_gas_OH
 
         # Compute the updated concentrations box anomalies from the decay of the previous year and the emisisons
           R_i[x] = R_i[x-1]*np.exp(-tstep/tau_new) \
@@ -893,7 +890,8 @@ def fair_scm(tstep=1.0,
 
     # Now we gather together all the relevant data such that we can output it all in a nested dict. We have to swapaxes the MK gases to get them in the right format.
     MK_gas = MK_gas.swapaxes(0,1)
-    MK_gas_emissions = MK_gas_emissions.swapaxes(0,1)
+    if not conc_driven:
+        MK_gas_emissions = MK_gas_emissions.swapaxes(0,1)
     MK_gas_RF = MK_gas_RF.swapaxes(0,1)
     
     # Creating the dictionaries to then be nested within one output
