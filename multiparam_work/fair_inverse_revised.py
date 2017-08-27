@@ -130,8 +130,8 @@ def iirf100_interp_funct(alpha,a,tau,targ_iirf100):
 
 # Define function which does inversion of carbon dioxide concentration to emissions of carbon
 def conc_to_emissions(co2_conc, T_input, 
-                           t_const = np.array([1000000,381.330,34.7850,4.12370]), 
-                           pool_splits = np.array([0.21787,0.22896,0.28454,0.26863]),
+                           t_const = np.array([1000000,394.4,36.54,4.303]), 
+                           pool_splits = np.array([0.2173,0.2240,0.2824,0.2763]),
                            GtC_2_ppmv = 0.471,
                            r0=32.40,
                            rC=0.019,
