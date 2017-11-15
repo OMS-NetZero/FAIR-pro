@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import root
+from constants import molwt
+from constants.general import M_atmos
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -18,15 +20,18 @@ def fair_scm(emissions=False,
              rt=4.165,
              F_2x=3.74,
              C_0=278.0,
-             ppm_gtc=2.123,
              iirf_max=97.0,
              restart_in=False,
-             restart_out=False):
+             restart_out=False,
+             tcr_dbl=70.0):
+
+  # Conversion between ppm CO2 and GtC emissions
+  ppm_gtc = M_atmos/1e18*molwt.c/molwt.air
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
   # ref eq. (4) and (5) of Millar et al ACP (2017)
-  k = 1.0 - (d/70.0)*(1.0 - np.exp(-70.0/d))
+  k = 1.0 - (d/tcr_dbl)*(1.0 - np.exp(-tcr_dbl/d))  # Allow TCR to vary from 70y
   if type(tcrecs) in [np.ndarray,list]:
     q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
 
@@ -92,7 +97,7 @@ def fair_scm(emissions=False,
     #Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    #Compute the updated concentrations box anomalies from the decay of the pervious year and the additional emissions
+    #Compute the updated concentrations box anomalies from the decay of the previous year and the additional emissions
     R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(emissions[x,np.newaxis]) / ppm_gtc
     #Summ the boxes to get the total concentration anomaly
     C[x] = np.sum(R_i[...,x,:],axis=-1)
