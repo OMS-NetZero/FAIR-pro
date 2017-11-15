@@ -92,7 +92,7 @@ def fair_scm(emissions=False,
     #Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    #Compute the updated concentrations box anomalies from the decay of the pervious year and the additional emisisons
+    #Compute the updated concentrations box anomalies from the decay of the pervious year and the additional emissions
     R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(emissions[x,np.newaxis]) / ppm_gtc
     #Summ the boxes to get the total concentration anomaly
     C[x] = np.sum(R_i[...,x,:],axis=-1)
