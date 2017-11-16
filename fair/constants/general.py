@@ -1,1 +1,1 @@
-M_atmos   = 5.1352e18 # weight of atmosphere, kg
+M_ATMOS   = 5.1352e18 # weight of atmosphere, kg

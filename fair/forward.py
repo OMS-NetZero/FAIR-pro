@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import root
 from constants import molwt
-from constants.general import M_atmos
+from constants.general import M_ATMOS
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -26,7 +26,7 @@ def fair_scm(emissions=False,
              tcr_dbl=70.0):
 
   # Conversion between ppm CO2 and GtC emissions
-  ppm_gtc = M_atmos/1e18*molwt.c/molwt.air
+  ppm_gtc = M_ATMOS/1e18*molwt.C/molwt.AIR
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)

@@ -17,3 +17,6 @@
 
 # Ipython checkpoints
 .ipynb_checkpoints/*
+
+# Temporary vim backup files
+*.swp
