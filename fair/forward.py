@@ -1,3 +1,4 @@
+import inspect
 import numpy as np
 from scipy.optimize import root
 from constants import molwt
@@ -28,26 +29,39 @@ def fair_scm(emissions=False,
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc = M_ATMOS/1e18*molwt.C/molwt.AIR
 
+  # Number of individual gases and radiative forcing agents to consider
+  ngas = 31
+  nF   = 13
+
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
   # ref eq. (4) and (5) of Millar et al ACP (2017)
-  k = 1.0 - (d/tcr_dbl)*(1.0 - np.exp(-tcr_dbl/d))  # Allow TCR to vary from 70y
+  k = 1.0 - (d/tcr_dbl)*(1.0 - np.exp(-tcr_dbl/d))  # Allow TCR to vary
   if type(tcrecs) in [np.ndarray,list]:
-    q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
+    q =  (1.0 / F_2x) * (1.0/(k[0]-k[1])) * np.array([
+      tcrecs[0]-tcrecs[1]*k[1],tcrecs[1]*k[0]-tcrecs[0]])
 
-  #Set up the output timeseries variables
-  # emissions must be a numpy array for this to work
-  if type(emissions) in [np.ndarray,list]:
-    carbon_boxes_shape = tuple(list(emissions.shape) + [4])
-    thermal_boxes_shape = tuple(list(emissions.shape) + [2])
-    integ_len = len(emissions)
-  elif type(other_rf) in [np.ndarray,list]:
-    carbon_boxes_shape = tuple(list(other_rf.shape) + [4])
-    thermal_boxes_shape = tuple(list(other_rf.shape) + [2])
+  # Convert any list to a numpy array for (a) speed and (b) consistency.
+  # Goes through all variables in scope and converts them.
+  frame = inspect.currentframe()
+  args, _, _, values = inspect.getargvalues(frame)
+  for i in args:
+    if type(values[i]) is list:
+      exec(i + '= np.array(' + i + ')')
+
+  # Set up the output timeseries variables
+  if type(emissions) is np.ndarray:
+    carbon_boxes_shape = (emissions.shape[0], a.shape[0])
+    thermal_boxes_shape = (emissions.shape[0], d.shape[0])
+    integ_len = emissions.shape[0]
+  elif type(other_rf) is np.ndarray:
+    carbon_boxes_shape = (other_rf.shape[0], a.shape[0])
+    thermal_boxes_shape = (other_rf.shape[0], d.shape[0])
     integ_len = len(other_rf)
     emissions = np.zeros(integ_len)
   else:
-    raise ValueError("Neither emissions or other_rf is defined as a timeseries")
+    raise ValueError(
+      "Neither emissions or other_rf is defined as a timeseries")
 
   RF = np.zeros(integ_len)
   C_acc = np.zeros(integ_len)
@@ -64,55 +78,58 @@ def fair_scm(emissions=False,
     C_acc[0] = restart_in[2]
 
   else:
-    #Initialise the carbon pools to be correct for first timestep in numerical method
+    # Initialise the carbon pools to be correct for first timestep in
+    # numerical method
     R_i[0,:] = a * emissions[0,np.newaxis] / ppm_gtc
 
   C[0] = np.sum(R_i[0,:],axis=-1)
 
-  if type(other_rf) == float:
+  if type(other_rf) in [float, int]:
     RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf
   else:
     RF[0] = (F_2x/np.log(2.)) * np.log((C[0] + C_0) /C_0) + other_rf[0]
 
   if restart_in == False:
-    #Update the thermal response boxes
+    # Update the thermal response boxes
     T_j[0,:] = (q/d)*(RF[0,np.newaxis])
 
-  #Sum the thermal response boxes to get the total temperature anomlay
+  # Sum the thermal response boxes to get the total temperature anomlay
   T[0]=np.sum(T_j[0,:],axis=-1)
 
   for x in range(1,integ_len):
       
-    #Calculate the parametrised iIRF and check if it is over the maximum allowed value
+    # Calculate the parametrised iIRF and check if it is over the maximum 
+    # allowed value
     iirf[x] = rc * C_acc[x-1]  + rt*T[x-1]  + r0
     if iirf[x] >= iirf_max:
       iirf[x] = iirf_max
       
-    #Linearly interpolate a solution for alpha
+    # Linearly interpolate a solution for alpha
     if x == 1:
       time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[x])))['x']
     else:
       time_scale_sf = (root(iirf_interp_funct,time_scale_sf,args=(a,tau,iirf[x])))['x']
 
-    #Multiply default timescales by scale factor
+    # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    #Compute the updated concentrations box anomalies from the decay of the previous year and the additional emissions
+    # Compute the updated concentrations box anomalies from the decay of the
+    # previous year and the additional emissions
     R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(emissions[x,np.newaxis]) / ppm_gtc
-    #Summ the boxes to get the total concentration anomaly
+    # Sum the boxes to get the total concentration anomaly
     C[x] = np.sum(R_i[...,x,:],axis=-1)
-    #Calculate the additional carbon uptake
+    # Calculate the additional carbon uptake
     C_acc[x] =  C_acc[x-1] + 0.5*(emissions[x] + emissions[x-1]) - (C[x] - C[x-1])*ppm_gtc
 
-    #Calculate the total radiative forcing
+    # Calculate the total radiative forcing
     if type(other_rf) == float:
       RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf
     else:
       RF[x] = (F_2x/np.log(2.)) * np.log((C[x] + C_0) /C_0) + other_rf[x]
 
-    #Update the thermal response boxes
+    # Update the thermal response boxes
     T_j[x,:] = T_j[x-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*RF[x,np.newaxis]
-    #Sum the thermal response boxes to get the total temperature anomaly
+    # Sum the thermal response boxes to get the total temperature anomaly
     T[x]=np.sum(T_j[x,:],axis=-1)
 
   if restart_out:
@@ -120,9 +137,3 @@ def fair_scm(emissions=False,
     return C + C_0, T, restart_out_val
   else:
     return C + C_0, T
-
-
-
-
-
-
