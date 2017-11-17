@@ -68,13 +68,14 @@ def fair_scm(emissions,
   nt = emissions.shape[0]
 
   # Check natural emissions and convert to 2D array if necessary
+#  print natural
   if natural.ndim==1:
     if natural.shape[0]!=2:
       raise ValueError(
         "natural emissions should be a 2-element or nt x 2 array")
     natural = np.tile(natural, nt).reshape((nt,2))
-  elif nat.ndim==2:
-    if nat.shape[1]!=2 or nat.shape[0]!=nt:
+  elif natural.ndim==2:
+    if natural.shape[1]!=2 or natural.shape[0]!=nt:
       raise ValueError(
         "natural emissions should be a 2-element or nt x 2 array")
   else:
