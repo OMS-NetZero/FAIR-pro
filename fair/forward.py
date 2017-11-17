@@ -95,8 +95,12 @@ def fair_scm(emissions,
 
   # CO2 is a delta from pre-industrial. Other gases are absolute concentration
   C[0,0] = np.sum(R_i[0,:],axis=-1)
-  C[0,1:3] = C_0[1:3] - C_0[1:3]*(1.0 - np.exp(-1.0/np.array(lifetime.aslist[1:3]))) + (natural[1:3] + 0.5 * (emissions[0,2:4])) / emis2conc[1:3]
-  C[0,3:] = C_0[3:] - C_0[3:]*(1.0 - np.exp(-1.0/np.array(lifetime.aslist[3:]))) + (natural[3:] + 0.5 * (emissions[0,12:])) / emis2conc[3:]
+  C[0,1:3] = C_0[1:3] - C_0[1:3]*(1.0 - np.exp(-1.0/np.array(
+    lifetime.aslist[1:3]))) + (natural[1:3] + 0.5 * (
+    emissions[0,2:4])) / emis2conc[1:3]
+  C[0,3:] = C_0[3:] - C_0[3:]*(1.0 - np.exp(-1.0/np.array(
+    lifetime.aslist[3:]))) + (natural[3:] + 0.5 * (
+    emissions[0,12:])) / emis2conc[3:]
 
   # CO2, CH4 and methane are co-dependent and from Etminan relationship
   RF[0,0:3] = etminan(C[0,0:3], C_0[0:3], F2x=F2x)
@@ -125,7 +129,8 @@ def fair_scm(emissions,
     if x == 1:
       time_scale_sf = (root(iirf_interp_funct,0.16,args=(a,tau,iirf[x])))['x']
     else:
-      time_scale_sf = (root(iirf_interp_funct,time_scale_sf,args=(a,tau,iirf[x])))['x']
+      time_scale_sf = (root(iirf_interp_funct,time_scale_sf,args=(
+        a,tau,iirf[x])))['x']
 
     # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
@@ -133,7 +138,8 @@ def fair_scm(emissions,
     # CARBON DIOXIDE
     # Compute the updated concentrations box anomalies from the decay of the
     # previous year and the additional emissions
-    R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(emissions[x,1:3])) / ppm_gtc
+    R_i[x,:] = R_i[x-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
+      emissions[x,1:3])) / ppm_gtc
     # Sum the boxes to get the total concentration anomaly
     C[x,0] = np.sum(R_i[...,x,:],axis=-1)
     # Calculate the additional carbon uptake
@@ -158,7 +164,8 @@ def fair_scm(emissions,
     RF[x,3] = np.sum((C[x,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
 
     # Update the thermal response boxes
-    T_j[x,:] = T_j[x-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(RF[x,:])
+    T_j[x,:] = T_j[x-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(
+      RF[x,:])
     # Sum the thermal response boxes to get the total temperature anomaly
     T[x]=np.sum(T_j[x,:],axis=-1)
 
