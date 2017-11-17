@@ -4,7 +4,7 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
-from forcing import ozone_tr
+from forcing import ozone_tr, ozone_st
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -43,7 +43,7 @@ def fair_scm(emissions,
   # Number of individual gases and radiative forcing agents to consider
   # just test with WMGHGs + trop ozone
   ngas = 31
-  nF   = 5
+  nF   = 6
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -122,6 +122,9 @@ def fair_scm(emissions,
   # outside the forward model.
   F[:,4] = ozone_tr.regress(emissions)
 
+  # Stratospheric ozone depends on concentrations of ODSs (index 15-30)
+  F[0,5] = ozone_st.magicc(C[0,15:], C_0[15:])
+
   if restart_in == False:
     # Update the thermal response boxes
     T_j[0,:] = (q/d)*(np.sum(F[0,:]))
@@ -147,7 +150,8 @@ def fair_scm(emissions,
     # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    # CARBON DIOXIDE
+    # 1. Concentrations
+    # a. CARBON DIOXIDE
     # Compute the updated concentrations box anomalies from the decay of the
     # previous year and the additional emissions
     R_i[t,:] = R_i[t-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
@@ -158,23 +162,25 @@ def fair_scm(emissions,
     C_acc[t] =  C_acc[t-1] + 0.5*(np.sum(emissions[t-1:t+1,1:3])) - (
       C[t,0] - C[t-1,0])*ppm_gtc
 
-    # METHANE
+    # b. METHANE
     C[t,1] = C[t-1,1] - C[t-1,1]*(1.0 - np.exp(-1.0/lifetime.CH4)) + (
       natural[t,0] + 0.5 * (emissions[t,3] + emissions[t-1,3])) / emis2conc[1]
 
-    # NITROUS OXIDE
+    # c. NITROUS OXIDE
     C[t,2] = C[t-1,2] - C[t-1,2]*(1.0 - np.exp(-1.0/lifetime.N2O)) + (
       natural[t,1] + 0.5 * (emissions[t,4] + emissions[t-1,4])) / emis2conc[2]
 
-    # OTHER WMGHGs
+    # d. OTHER WMGHGs
     C[t,3:] = C[t-1,3:] - C[t-1,3:]*(1.0 - np.exp(-1.0/np.array(
       lifetime.aslist[3:]))) + (0.5 * (
       emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
 
-    # Calculate the total radiative forcing
+    # 2. Radiative forcing
     F[t,0:3] = etminan(C[t,0:3], C_0[0:3], F2x=F2x)
     F[t,3] = np.sum((C[t,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
+    F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
 
+    # 3. Temperature
     # Update the thermal response boxes
     T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(
       F[t,:])
