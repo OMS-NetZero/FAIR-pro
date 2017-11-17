@@ -4,6 +4,7 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
+from forcing import ozone_tr
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -40,9 +41,9 @@ def fair_scm(emissions,
   emis2conc[2] = emis2conc[2] / n2o_sf
 
   # Number of individual gases and radiative forcing agents to consider
-  # just test with WMGHGs for now
+  # just test with WMGHGs + trop ozone
   ngas = 31
-  nF   = 4
+  nF   = 5
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -116,6 +117,10 @@ def fair_scm(emissions,
   # the factor of 0.001 here is because radiative efficiencies are given
   # in W/m2/ppb and concentrations of minor gases are in ppt.
   F[0,3] = np.sum((C[0,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
+
+  # Tropospheric ozone. Assuming no temperature/chemistry feedback it can live
+  # outside the forward model.
+  F[:,4] = ozone_tr.regress(emissions)
 
   if restart_in == False:
     # Update the thermal response boxes
