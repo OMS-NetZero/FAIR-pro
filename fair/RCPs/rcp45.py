@@ -11,6 +11,10 @@ emissions_filename = os.path.join(
     os.path.dirname(__file__), 'RCP45_EMISSIONS.csv')
 forcing_filename = os.path.join(
     os.path.dirname(__file__), 'RCP45_MIDYEAR_RADFORCING.csv')
+aviNOx_filename = os.path.join(
+    os.path.dirname(__file__), 'aviNOx_fraction.csv')
+
+aviNOx_frac = np.loadtxt(aviNOx_filename, skiprows=5, usecols=2, delimiter=',')
 
 class Emissions:
     emissions = np.loadtxt(emissions_filename, skiprows=37, delimiter=',')

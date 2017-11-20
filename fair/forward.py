@@ -4,7 +4,7 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
-from forcing import ozone_tr, ozone_st, h2o_st
+from forcing import ozone_tr, ozone_st, h2o_st, contrails
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -27,7 +27,8 @@ def fair_scm(emissions,
              iirf_max=97.0,
              restart_in=False,
              restart_out=False,
-             tcr_dbl=70.0):
+             tcr_dbl=70.0,
+             aviNOx_frac=0.):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -43,7 +44,7 @@ def fair_scm(emissions,
   # Number of individual gases and radiative forcing agents to consider
   # just test with WMGHGs + trop ozone
   ngas = 31
-  nF   = 7
+  nF   = 8
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -127,6 +128,9 @@ def fair_scm(emissions,
 
   # Stratospheric water vapour is a function of the methane radiative forcing
   F[0,6] = h2o_st.linear(F[0,1])
+
+  # Forcing from contrails. As with tr O3, no feedback dependence
+  F[:,7] = contrails.from_aviNOx(emissions, aviNOx_frac)
 
   if restart_in == False:
     # Update the thermal response boxes
