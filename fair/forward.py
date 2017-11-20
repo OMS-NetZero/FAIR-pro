@@ -4,7 +4,7 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
-from forcing import ozone_tr, ozone_st, h2o_st, contrails
+from forcing import ozone_tr, ozone_st, h2o_st, contrails, aerosols
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -28,7 +28,8 @@ def fair_scm(emissions,
              restart_in=False,
              restart_out=False,
              tcr_dbl=70.0,
-             aviNOx_frac=0.):
+             aviNOx_frac=0.,
+             useStevens=False):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -42,9 +43,8 @@ def fair_scm(emissions,
   emis2conc[2] = emis2conc[2] / n2o_sf
 
   # Number of individual gases and radiative forcing agents to consider
-  # just test with WMGHGs + trop ozone
   ngas = 31
-  nF   = 8
+  nF   = 9
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -131,6 +131,12 @@ def fair_scm(emissions,
 
   # Forcing from contrails. As with tr O3, no feedback dependence
   F[:,7] = contrails.from_aviNOx(emissions, aviNOx_frac)
+
+  # Forcing from aerosols - again no feedback dependence
+  if useStevens:
+    F[:,8] = aerosols.Stevens(emissions)
+  else:
+    F[:,8] = aerosols.regress(emissions)
 
   if restart_in == False:
     # Update the thermal response boxes
