@@ -13,7 +13,8 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
     return iirf_arr   -  targ_iirf
 
 def fair_scm(emissions,
-             other_rf=0.0,
+             F_volcanic=0.0,
+             F_solar=0.0,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
@@ -45,7 +46,7 @@ def fair_scm(emissions,
 
   # Number of individual gases and radiative forcing agents to consider
   ngas = 31
-  nF   = 11
+  nF   = 13
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -145,6 +146,10 @@ def fair_scm(emissions,
   # Land use change - scales fairly well with cumulative land use C emissions.
   # We assume no feedbacks from the carbon cycle. Perhaps a future improvement.
   F[:,10] = landuse.cumulative(emissions)
+
+  # Volcanic and solar copied straight to the output arrays
+  F[:,11] = F_volcanic
+  F[:,12] = F_solar
 
   if restart_in == False:
     # Update the thermal response boxes
