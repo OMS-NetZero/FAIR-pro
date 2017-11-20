@@ -4,7 +4,8 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
-from forcing import ozone_tr, ozone_st, h2o_st, contrails, aerosols, bc_snow
+from forcing import ozone_tr, ozone_st, h2o_st, contrails, aerosols, bc_snow,\
+                    landuse
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -44,7 +45,7 @@ def fair_scm(emissions,
 
   # Number of individual gases and radiative forcing agents to consider
   ngas = 31
-  nF   = 10
+  nF   = 11
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -140,6 +141,10 @@ def fair_scm(emissions,
 
   # Black carbon on snow - no feedback dependence
   F[:,9] = bc_snow.linear(emissions)
+
+  # Land use change - scales fairly well with cumulative land use C emissions.
+  # We assume no feedbacks from the carbon cycle. Perhaps a future improvement.
+  F[:,10] = landuse.cumulative(emissions)
 
   if restart_in == False:
     # Update the thermal response boxes
