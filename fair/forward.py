@@ -24,14 +24,17 @@ def fair_scm(emissions,
              rc=0.019,
              rt=4.165,
              F2x=3.74,
-             C_0=np.array([278., 722., 275.] + [0.]*28),
+             C_0=np.array([278., 722., 273., 34.497] + [0.]*25 +
+                          [13.0975, 547.996]),
              natural=np.array([202., 10.]),
              iirf_max=97.0,
              restart_in=False,
              restart_out=False,
              tcr_dbl=70.0,
              aviNOx_frac=0.,
-             useStevens=False):
+             useStevens=False,
+             efficacy=np.array([1.]*13),
+             scale=np.array([1.]*13)):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -106,12 +109,7 @@ def fair_scm(emissions,
 
   # CO2 is a delta from pre-industrial. Other gases are absolute concentration
   C[0,0] = np.sum(R_i[0,:],axis=-1)
-  C[0,1:3] = C_0[1:3] - C_0[1:3]*(1.0 - np.exp(-1.0/np.array(
-    lifetime.aslist[1:3]))) + (natural[0,:] + 0.5 * (
-    emissions[0,2:4])) / emis2conc[1:3]
-  C[0,3:] = C_0[3:] - C_0[3:]*(1.0 - np.exp(-1.0/np.array(
-    lifetime.aslist[3:]))) + (0.5 * (
-    emissions[0,12:])) / emis2conc[3:]
+  C[0,1:] = C_0[1:]
 
   # CO2, CH4 and methane are co-dependent and from Etminan relationship
   F[0,0:3] = etminan(C[0,0:3], C_0[0:3], F2x=F2x)
@@ -207,10 +205,13 @@ def fair_scm(emissions,
     F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
     F[t,6] = h2o_st.linear(F[t,1])
 
+    # multiply by scale factors
+    F[t,:] = F[t,:] * scale
+
     # 3. Temperature
     # Update the thermal response boxes
     T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(
-      F[t,:])
+      F[t,:]*efficacy)
     # Sum the thermal response boxes to get the total temperature anomaly
     T[t]=np.sum(T_j[t,:],axis=-1)
 
