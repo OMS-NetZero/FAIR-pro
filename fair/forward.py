@@ -4,7 +4,7 @@ from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
 from forcing.ghg import etminan
-from forcing import ozone_tr, ozone_st
+from forcing import ozone_tr, ozone_st, h2o_st
 
 def iirf_interp_funct(alp_b,a,tau,targ_iirf):
 	# ref eq. (7) of Millar et al ACP (2017)
@@ -43,7 +43,7 @@ def fair_scm(emissions,
   # Number of individual gases and radiative forcing agents to consider
   # just test with WMGHGs + trop ozone
   ngas = 31
-  nF   = 6
+  nF   = 7
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -125,6 +125,9 @@ def fair_scm(emissions,
   # Stratospheric ozone depends on concentrations of ODSs (index 15-30)
   F[0,5] = ozone_st.magicc(C[0,15:], C_0[15:])
 
+  # Stratospheric water vapour is a function of the methane radiative forcing
+  F[0,6] = h2o_st.linear(F[0,1])
+
   if restart_in == False:
     # Update the thermal response boxes
     T_j[0,:] = (q/d)*(np.sum(F[0,:]))
@@ -179,6 +182,7 @@ def fair_scm(emissions,
     F[t,0:3] = etminan(C[t,0:3], C_0[0:3], F2x=F2x)
     F[t,3] = np.sum((C[t,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
     F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
+    F[t,6] = h2o_st.linear(F[t,1])
 
     # 3. Temperature
     # Update the thermal response boxes
