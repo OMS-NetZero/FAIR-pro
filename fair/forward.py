@@ -32,9 +32,11 @@ def fair_scm(emissions,
              restart_out=False,
              tcr_dbl=70.0,
              aviNOx_frac=0.,
+             fossilCH4_frac=0.,
              useStevens=False,
              efficacy=np.array([1.]*13),
-             scale=np.array([1.]*13)):
+             scale=np.array([1.]*13),
+             oxCH4_frac=0.61):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -73,6 +75,9 @@ def fair_scm(emissions,
   carbon_boxes_shape = (emissions.shape[0], a.shape[0])
   thermal_boxes_shape = (emissions.shape[0], d.shape[0])
   nt = emissions.shape[0]
+
+  if np.isscalar(fossilCH4_frac):
+    fossilCH4_frac = np.ones(nt) * fossilCH4_frac
 
   # Check natural emissions and convert to 2D array if necessary
 #  print natural
@@ -176,10 +181,14 @@ def fair_scm(emissions,
 
     # 1. Concentrations
     # a. CARBON DIOXIDE
+    # Firstly add any oxidised methane from last year to the CO2 pool
+    oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetime.CH4)) * (
+      molwt.C/molwt.CH4 * 0.001 * oxCH4_frac * fossilCH4_frac[t])
+    oxidised_CH4 = np.max((oxidised_CH4, 0))
     # Compute the updated concentrations box anomalies from the decay of the
     # previous year and the additional emissions
     R_i[t,:] = R_i[t-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
-      emissions[t,1:3])) / ppm_gtc
+      emissions[t,1:3]) + oxidised_CH4) / ppm_gtc
     # Sum the boxes to get the total concentration anomaly
     C[t,0] = np.sum(R_i[...,t,:],axis=-1)
     # Calculate the additional carbon uptake

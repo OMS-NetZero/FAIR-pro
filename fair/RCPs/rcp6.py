@@ -15,6 +15,8 @@ aviNOx_filename = os.path.join(
     os.path.dirname(__file__), 'aviNOx_fraction.csv')
 
 aviNOx_frac = np.loadtxt(aviNOx_filename, skiprows=5, usecols=3, delimiter=',')
+fossilCH4_frac = np.loadtxt(fossilCH4_filename, skiprows=5, usecols=3,
+    delimiter=',')
 
 class Emissions:
     emissions = np.loadtxt(emissions_filename, skiprows=37, delimiter=',')
