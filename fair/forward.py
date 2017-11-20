@@ -80,7 +80,6 @@ def fair_scm(emissions,
     fossilCH4_frac = np.ones(nt) * fossilCH4_frac
 
   # Check natural emissions and convert to 2D array if necessary
-#  print natural
   if natural.ndim==1:
     if natural.shape[0]!=2:
       raise ValueError(
