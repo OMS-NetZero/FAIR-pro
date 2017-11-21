@@ -2,11 +2,11 @@ import numpy as np
 from ..constants import molwt
 
 def regress(emissions,
-           aNOx = -13.78885e-3,
-           aSOx =  -3.56377e-3,
-           aBC  =  11.47083e-3,
-           aOC  =  -6.76767e-3,
-           aNH3 =   0.0):
+           aNOx =  -2.62e-3,
+           aSOx =  -5.66e-3,
+           aBC  =  14.28e-3,
+           aOC  =  -8.90e-3,
+           aNH3 =  -5.89e-3):
 
     """Calculates aerosol forcing based on a multi-linear regression of
     aerosol emissions to the aerosol ERF time series in AR5.
