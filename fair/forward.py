@@ -12,9 +12,8 @@ def iirf_interp_funct(alp_b,a,tau,targ_iirf):
     iirf_arr = alp_b*(np.sum(a*tau*(1.0 - np.exp(-100.0/(tau*alp_b)))))
     return iirf_arr   -  targ_iirf
 
-def fair_scm(emissions,
-             F_volcanic=0.0,
-             F_solar=0.0,
+def fair_scm(emissions=False,
+             other_rf=0.0,
              q=np.array([0.33,0.41]),
              tcrecs=np.array([1.6,2.75]),
              d=np.array([239.0,4.1]),
@@ -26,13 +25,16 @@ def fair_scm(emissions,
              F2x=3.74,
              C_0=np.array([278., 722., 273., 34.497] + [0.]*25 +
                           [13.0975, 547.996]),
-             natural=np.array([202., 10.]),
              iirf_max=97.0,
              restart_in=False,
              restart_out=False,
+             useMultigas=False,
              tcr_dbl=70.0,
+             F_volcanic=0.0,
+             F_solar=0.0,
              aviNOx_frac=0.,
              fossilCH4_frac=0.,
+             natural=np.array([202., 10.]),
              useStevens=False,
              efficacy=np.array([1.]*13),
              scale=np.array([1.]*13),
@@ -48,10 +50,6 @@ def fair_scm(emissions,
   # Funny units for nitrogen emissions - N2O is expressed in N2 equivalent
   n2o_sf = molwt.N2O/molwt.N2
   emis2conc[2] = emis2conc[2] / n2o_sf
-
-  # Number of individual gases and radiative forcing agents to consider
-  ngas = 31
-  nF   = 13
 
   # If TCR and ECS are supplied, calculate the q1 and q2 model coefficients 
   # (overwriting any other q array that might have been supplied)
@@ -69,15 +67,33 @@ def fair_scm(emissions,
     if type(values[i]) is list:
       exec(i + '= np.array(' + i + ')')
 
-  # Set up the output timeseries variables
-  if type(emissions) is not np.ndarray or emissions.shape[1] != 40:
-    raise ValueError("emissions timeseries should be a nt x 40 numpy array")
-  carbon_boxes_shape = (emissions.shape[0], a.shape[0])
-  thermal_boxes_shape = (emissions.shape[0], d.shape[0])
-  nt = emissions.shape[0]
-
-  if np.isscalar(fossilCH4_frac):
-    fossilCH4_frac = np.ones(nt) * fossilCH4_frac
+  # Set up the output timeseries variables depending on options and perform
+  # basic sense checks
+  if useMultigas:
+    ngas = 31
+    nF   = 13
+    if type(emissions) is not np.ndarray or emissions.shape[1] != 40:
+      raise ValueError("emissions timeseries should be a nt x 40 numpy array")
+    carbon_boxes_shape = (emissions.shape[0], a.shape[0])
+    thermal_boxes_shape = (emissions.shape[0], d.shape[0])
+    nt = emissions.shape[0]
+    if np.isscalar(fossilCH4_frac):
+      fossilCH4_frac = np.ones(nt) * fossilCH4_frac
+  else:
+    ngas = 1
+    nF   = 1
+    if type(emissions) is np.ndarray:
+      carbon_boxes_shape = (emissions.shape[0], a.shape[0])
+      thermal_boxes_shape = (emissions.shape[0], d.shape[0])
+      nt = emissions.shape[0]
+    elif type(other_rf) is np.ndarray:
+      carbon_boxes_shape = (other_rf.shape[0], a.shape[0])
+      thermal_boxes_shape = (other_rf.shape[0], d.shape[0])
+      nt = other_rf.shape[0]
+      emissions = np.zeros(nt)
+    else:
+      raise ValueError(
+        "Neither emissions or other_rf is defined as a timeseries")
 
   # Check natural emissions and convert to 2D array if necessary
   if natural.ndim==1:
@@ -109,49 +125,61 @@ def fair_scm(emissions,
   else:
     # Initialise the carbon pools to be correct for first timestep in
     # numerical method
-    R_i[0,:] = a * (np.sum(emissions[0,1:3])) / ppm_gtc
+    if useMultigas:
+      R_i[0,:] = a * (np.sum(emissions[0,1:3])) / ppm_gtc
+    else:
+      R_i[0,:] = a * emissions[0,np.newaxis] / ppm_gtc
 
   # CO2 is a delta from pre-industrial. Other gases are absolute concentration
   C[0,0] = np.sum(R_i[0,:],axis=-1)
-  C[0,1:] = C_0[1:]
 
-  # CO2, CH4 and methane are co-dependent and from Etminan relationship
-  F[0,0:3] = etminan(C[0,0:3], C_0[0:3], F2x=F2x)
+  if useMultigas:
+    C[0,1:] = C_0[1:]
 
-  # Minor (F- and H-gases) are linear in concentration
-  # the factor of 0.001 here is because radiative efficiencies are given
-  # in W/m2/ppb and concentrations of minor gases are in ppt.
-  F[0,3] = np.sum((C[0,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
+    # CO2, CH4 and methane are co-dependent and from Etminan relationship
+    F[0,0:3] = etminan(C[0,0:3], C_0[0:3], F2x=F2x)
 
-  # Tropospheric ozone. Assuming no temperature/chemistry feedback it can live
-  # outside the forward model.
-  F[:,4] = ozone_tr.regress(emissions)
+    # Minor (F- and H-gases) are linear in concentration
+    # the factor of 0.001 here is because radiative efficiencies are given
+    # in W/m2/ppb and concentrations of minor gases are in ppt.
+    F[0,3] = np.sum((C[0,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
 
-  # Stratospheric ozone depends on concentrations of ODSs (index 15-30)
-  F[0,5] = ozone_st.magicc(C[0,15:], C_0[15:])
+    # Tropospheric ozone. Assuming no temperature/chemistry feedback it can live
+    # outside the forward model.
+    F[:,4] = ozone_tr.regress(emissions)
 
-  # Stratospheric water vapour is a function of the methane radiative forcing
-  F[0,6] = h2o_st.linear(F[0,1])
+    # Stratospheric ozone depends on concentrations of ODSs (index 15-30)
+    F[0,5] = ozone_st.magicc(C[0,15:], C_0[15:])
 
-  # Forcing from contrails. As with tr O3, no feedback dependence
-  F[:,7] = contrails.from_aviNOx(emissions, aviNOx_frac)
+    # Stratospheric water vapour is a function of the methane radiative forcing
+    F[0,6] = h2o_st.linear(F[0,1])
 
-  # Forcing from aerosols - again no feedback dependence
-  if useStevens:
-    F[:,8] = aerosols.Stevens(emissions)
+    # Forcing from contrails. As with tr O3, no feedback dependence
+    F[:,7] = contrails.from_aviNOx(emissions, aviNOx_frac)
+
+    # Forcing from aerosols - again no feedback dependence
+    if useStevens:
+      F[:,8] = aerosols.Stevens(emissions)
+    else:
+      F[:,8] = aerosols.regress(emissions)
+
+    # Black carbon on snow - no feedback dependence
+    F[:,9] = bc_snow.linear(emissions)
+
+    # Land use change - scales fairly well with cumulative land use C emissions.
+    # We assume no feedbacks from the carbon cycle. Perhaps future improvement.
+    F[:,10] = landuse.cumulative(emissions)
+
+    # Volcanic and solar copied straight to the output arrays
+    F[:,11] = F_volcanic
+    F[:,12] = F_solar
   else:
-    F[:,8] = aerosols.regress(emissions)
-
-  # Black carbon on snow - no feedback dependence
-  F[:,9] = bc_snow.linear(emissions)
-
-  # Land use change - scales fairly well with cumulative land use C emissions.
-  # We assume no feedbacks from the carbon cycle. Perhaps a future improvement.
-  F[:,10] = landuse.cumulative(emissions)
-
-  # Volcanic and solar copied straight to the output arrays
-  F[:,11] = F_volcanic
-  F[:,12] = F_solar
+    if np.isscalar(other_rf):
+      F[0,0] = (F2x/np.log(2.)) * np.log(
+        (C[0,0] + C_0[0]) / C_0[0]) + other_rf
+    else:
+      F[0,0] = (F2x/np.log(2.)) * np.log(
+        (C[0,0] + C_0[0]) / C_0[0]) + other_rf[0]
 
   if restart_in == False:
     # Update the thermal response boxes
@@ -161,7 +189,6 @@ def fair_scm(emissions,
   T[0]=np.sum(T_j[0,:],axis=-1)
 
   for t in range(1,nt):
-      
     # Calculate the parametrised iIRF and check if it is over the maximum 
     # allowed value
     iirf[t] = rc * C_acc[t-1]  + rt*T[t-1]  + r0
@@ -178,50 +205,71 @@ def fair_scm(emissions,
     # Multiply default timescales by scale factor
     tau_new = tau * time_scale_sf
 
-    # 1. Concentrations
-    # a. CARBON DIOXIDE
-    # Firstly add any oxidised methane from last year to the CO2 pool
-    oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetime.CH4)) * (
-      molwt.C/molwt.CH4 * 0.001 * oxCH4_frac * fossilCH4_frac[t])
-    oxidised_CH4 = np.max((oxidised_CH4, 0))
-    # Compute the updated concentrations box anomalies from the decay of the
-    # previous year and the additional emissions
-    R_i[t,:] = R_i[t-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
-      emissions[t,1:3]) + oxidised_CH4) / ppm_gtc
-    # Sum the boxes to get the total concentration anomaly
-    C[t,0] = np.sum(R_i[...,t,:],axis=-1)
-    # Calculate the additional carbon uptake
-    C_acc[t] =  C_acc[t-1] + 0.5*(np.sum(emissions[t-1:t+1,1:3])) - (
-      C[t,0] - C[t-1,0])*ppm_gtc
+    if useMultigas:
+      # 1. Concentrations
+      # a. CARBON DIOXIDE
+      # Firstly add any oxidised methane from last year to the CO2 pool
+      oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetime.CH4)) * (
+        molwt.C/molwt.CH4 * 0.001 * oxCH4_frac * fossilCH4_frac[t])
+      oxidised_CH4 = np.max((oxidised_CH4, 0))
 
-    # b. METHANE
-    C[t,1] = C[t-1,1] - C[t-1,1]*(1.0 - np.exp(-1.0/lifetime.CH4)) + (
-      natural[t,0] + 0.5 * (emissions[t,3] + emissions[t-1,3])) / emis2conc[1]
+      # Compute the updated concentrations box anomalies from the decay of the
+      # previous year and the additional emissions
+      R_i[t,:] = R_i[t-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
+        emissions[t,1:3]) + oxidised_CH4) / ppm_gtc
+      # Sum the boxes to get the total concentration anomaly
+      C[t,0] = np.sum(R_i[...,t,:],axis=-1)
+      # Calculate the additional carbon uptake
+      C_acc[t] =  C_acc[t-1] + 0.5*(np.sum(emissions[t-1:t+1,1:3])) - (
+        C[t,0] - C[t-1,0])*ppm_gtc
 
-    # c. NITROUS OXIDE
-    C[t,2] = C[t-1,2] - C[t-1,2]*(1.0 - np.exp(-1.0/lifetime.N2O)) + (
-      natural[t,1] + 0.5 * (emissions[t,4] + emissions[t-1,4])) / emis2conc[2]
+      # b. METHANE
+      C[t,1] = C[t-1,1] - C[t-1,1]*(1.0 - np.exp(-1.0/lifetime.CH4)) + (
+        natural[t,0] + 0.5*(emissions[t,3] + emissions[t-1,3])) / emis2conc[1]
 
-    # d. OTHER WMGHGs
-    C[t,3:] = C[t-1,3:] - C[t-1,3:]*(1.0 - np.exp(-1.0/np.array(
-      lifetime.aslist[3:]))) + (0.5 * (
-      emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
+      # c. NITROUS OXIDE
+      C[t,2] = C[t-1,2] - C[t-1,2]*(1.0 - np.exp(-1.0/lifetime.N2O)) + (
+        natural[t,1] + 0.5*(emissions[t,4] + emissions[t-1,4])) / emis2conc[2]
 
-    # 2. Radiative forcing
-    F[t,0:3] = etminan(C[t,0:3], C_0[0:3], F2x=F2x)
-    F[t,3] = np.sum((C[t,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
-    F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
-    F[t,6] = h2o_st.linear(F[t,1])
+      # d. OTHER WMGHGs
+      C[t,3:] = C[t-1,3:] - C[t-1,3:]*(1.0 - np.exp(-1.0/np.array(
+        lifetime.aslist[3:]))) + (0.5 * (
+        emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
 
-    # multiply by scale factors
-    F[t,:] = F[t,:] * scale
+      # 2. Radiative forcing
+      F[t,0:3] = etminan(C[t,0:3], C_0[0:3], F2x=F2x)
+      F[t,3] = np.sum((C[t,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
+      F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
+      F[t,6] = h2o_st.linear(F[t,1])
 
-    # 3. Temperature
-    # Update the thermal response boxes
-    T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(
-      F[t,:]*efficacy)
-    # Sum the thermal response boxes to get the total temperature anomaly
-    T[t]=np.sum(T_j[t,:],axis=-1)
+      # multiply by scale factors
+      F[t,:] = F[t,:] * scale
+
+      # 3. Temperature
+      # Update the thermal response boxes
+      T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*np.sum(
+        F[t,:]*efficacy)
+      # Sum the thermal response boxes to get the total temperature anomaly
+      T[t]=np.sum(T_j[t,:],axis=-1)
+
+    else:
+      R_i[t,:] = R_i[t-1,:]*np.exp(-1.0/tau_new) + a*(np.sum(
+        emissions[t])) / ppm_gtc
+      # Sum the boxes to get the total concentration anomaly
+      C[t,0] = np.sum(R_i[...,t,:],axis=-1)
+      # Calculate the additional carbon uptake
+      C_acc[t] =  C_acc[t-1] + 0.5*(np.sum(emissions[t-1:t+1])) - (
+        C[t,0] - C[t-1,0])*ppm_gtc
+
+      if np.isscalar(other_rf):
+        F[t,0] = (F2x/np.log(2.)) * np.log(
+          (C[t,0] + C_0[0]) / C_0[0]) + other_rf
+      else:
+        F[t,0] = (F2x/np.log(2.)) * np.log(
+          (C[t,0] + C_0[0]) / C_0[0]) + other_rf[t]
+
+      T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*F[t,:]
+      T[t]=np.sum(T_j[t,:],axis=-1)
 
   # add delta CO2 concentrations to initial value
   C[:,0] = C[:,0] + C_0[0]
@@ -230,4 +278,7 @@ def fair_scm(emissions,
     restart_out_val=(R_i[-1],T_j[-1],C_acc[-1])
     return C, F, T, restart_out_val
   else:
+    if not useMultigas:
+      C = np.squeeze(C)
+      F = np.squeeze(F)
     return C, F, T
