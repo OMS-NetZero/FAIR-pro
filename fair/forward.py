@@ -39,7 +39,7 @@ def fair_scm(emissions=False,
              efficacy=np.array([1.]*13),
              scale=np.array([1.]*13),
              oxCH4_frac=0.61,
-             lifetimes=None):
+             lifetimes=False):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -81,8 +81,9 @@ def fair_scm(emissions=False,
     if np.isscalar(fossilCH4_frac):
       fossilCH4_frac = np.ones(nt) * fossilCH4_frac
     # If custom gas lifetimes are supplied, use them, else import defaults
-    if type(lifetimes) is np.ndarray and len(lifetimes)!=ngas:
-      raise ValueError("custom GHG lifetime array must have " + str(ngas) + 
+    if type(lifetimes) is np.ndarray:
+      if len(lifetimes)!=ngas:
+        raise ValueError("custom GHG lifetime array must have " + str(ngas) + 
         " elements")
     else:
       lifetimes = lifetime.aslist
@@ -127,14 +128,15 @@ def fair_scm(emissions=False,
 
   C = np.zeros((nt, ngas))
   T = np.zeros(nt)
+  C_0 = np.copy(C_pi)
 
   if restart_in:
     R_i[0]=restart_in[0]
     T_j[0]=restart_in[1]
     C_acc[0] = restart_in[2]
-    C_0 = restart_in[3]
+    if useMultigas:
+      C_0[1:] = restart_in[3][1:]
   else:
-    C_0 = C_pi
     # Initialise the carbon pools to be correct for first timestep in
     # numerical method
     if useMultigas:
@@ -147,6 +149,7 @@ def fair_scm(emissions=False,
 
   if useMultigas:
     C[0,1:] = C_0[1:]
+    print C_0
 
     # CO2, CH4 and methane are co-dependent and from Etminan relationship
     F[0,0:3] = etminan(C[0,0:3], C_pi[0:3], F2x=F2x)
