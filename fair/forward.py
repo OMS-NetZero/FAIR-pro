@@ -23,7 +23,7 @@ def fair_scm(emissions=False,
              rc=0.019,
              rt=4.165,
              F2x=3.74,
-             C_0=np.array([278., 722., 273., 34.497] + [0.]*25 +
+             C_pi=np.array([278., 722., 273., 34.497] + [0.]*25 +
                           [13.0975, 547.996]),
              iirf_max=97.0,
              restart_in=False,
@@ -132,7 +132,9 @@ def fair_scm(emissions=False,
     R_i[0]=restart_in[0]
     T_j[0]=restart_in[1]
     C_acc[0] = restart_in[2]
+    C_0 = restart_in[3]
   else:
+    C_0 = C_pi
     # Initialise the carbon pools to be correct for first timestep in
     # numerical method
     if useMultigas:
@@ -147,19 +149,19 @@ def fair_scm(emissions=False,
     C[0,1:] = C_0[1:]
 
     # CO2, CH4 and methane are co-dependent and from Etminan relationship
-    F[0,0:3] = etminan(C[0,0:3], C_0[0:3], F2x=F2x)
+    F[0,0:3] = etminan(C[0,0:3], C_pi[0:3], F2x=F2x)
 
     # Minor (F- and H-gases) are linear in concentration
     # the factor of 0.001 here is because radiative efficiencies are given
     # in W/m2/ppb and concentrations of minor gases are in ppt.
-    F[0,3] = np.sum((C[0,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
+    F[0,3] = np.sum((C[0,3:] - C_pi[3:]) * radeff.aslist[3:] * 0.001)
 
     # Tropospheric ozone. Assuming no temperature/chemistry feedback it can live
     # outside the forward model.
     F[:,4] = ozone_tr.regress(emissions)
 
     # Stratospheric ozone depends on concentrations of ODSs (index 15-30)
-    F[0,5] = ozone_st.magicc(C[0,15:], C_0[15:])
+    F[0,5] = ozone_st.magicc(C[0,15:], C_pi[15:])
 
     # Stratospheric water vapour is a function of the methane radiative forcing
     F[0,6] = h2o_st.linear(F[0,1])
@@ -186,10 +188,10 @@ def fair_scm(emissions=False,
   else:
     if np.isscalar(other_rf):
       F[0,0] = (F2x/np.log(2.)) * np.log(
-        (C[0,0] + C_0[0]) / C_0[0]) + other_rf
+        (C[0,0] + C_pi[0]) / C_pi[0]) + other_rf
     else:
       F[0,0] = (F2x/np.log(2.)) * np.log(
-        (C[0,0] + C_0[0]) / C_0[0]) + other_rf[0]
+        (C[0,0] + C_pi[0]) / C_pi[0]) + other_rf[0]
 
   if restart_in == False:
     # Update the thermal response boxes
@@ -219,7 +221,7 @@ def fair_scm(emissions=False,
       # 1. Concentrations
       # a. CARBON DIOXIDE
       # Firstly add any oxidised methane from last year to the CO2 pool
-      oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetimes[1])) * (
+      oxidised_CH4 = (C[t-1,1]-C_pi[1]) * (1.0 - np.exp(-1.0/lifetimes[1])) * (
         molwt.C/molwt.CH4 * 0.001 * oxCH4_frac * fossilCH4_frac[t])
       oxidised_CH4 = np.max((oxidised_CH4, 0))
 
@@ -247,9 +249,9 @@ def fair_scm(emissions=False,
         emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
 
       # 2. Radiative forcing
-      F[t,0:3] = etminan(C[t,0:3], C_0[0:3], F2x=F2x)
-      F[t,3] = np.sum((C[t,3:] - C_0[3:]) * radeff.aslist[3:] * 0.001)
-      F[t,5] = ozone_st.magicc(C[t,15:], C_0[15:])
+      F[t,0:3] = etminan(C[t,0:3], C_pi[0:3], F2x=F2x)
+      F[t,3] = np.sum((C[t,3:] - C_pi[3:]) * radeff.aslist[3:] * 0.001)
+      F[t,5] = ozone_st.magicc(C[t,15:], C_pi[15:])
       F[t,6] = h2o_st.linear(F[t,1])
 
       # multiply by scale factors
@@ -273,10 +275,10 @@ def fair_scm(emissions=False,
 
       if np.isscalar(other_rf):
         F[t,0] = (F2x/np.log(2.)) * np.log(
-          (C[t,0] + C_0[0]) / C_0[0]) + other_rf
+          (C[t,0] + C_pi[0]) / C_pi[0]) + other_rf
       else:
         F[t,0] = (F2x/np.log(2.)) * np.log(
-          (C[t,0] + C_0[0]) / C_0[0]) + other_rf[t]
+          (C[t,0] + C_pi[0]) / C_pi[0]) + other_rf[t]
 
       T_j[t,:] = T_j[t-1,:]*np.exp(-1.0/d) + q*(1-np.exp((-1.0)/d))*F[t,:]
       T[t]=np.sum(T_j[t,:],axis=-1)
@@ -285,7 +287,7 @@ def fair_scm(emissions=False,
   C[:,0] = C[:,0] + C_0[0]
 
   if restart_out:
-    restart_out_val=(R_i[-1],T_j[-1],C_acc[-1])
+    restart_out_val=(R_i[-1],T_j[-1],C_acc[-1],C[-1,:])
     return C, F, T, restart_out_val
   else:
     if not useMultigas:
