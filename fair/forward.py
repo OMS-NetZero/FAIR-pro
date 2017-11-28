@@ -38,7 +38,8 @@ def fair_scm(emissions=False,
              useStevens=False,
              efficacy=np.array([1.]*13),
              scale=np.array([1.]*13),
-             oxCH4_frac=0.61):
+             oxCH4_frac=0.61,
+             lifetimes=None):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -79,6 +80,12 @@ def fair_scm(emissions=False,
     nt = emissions.shape[0]
     if np.isscalar(fossilCH4_frac):
       fossilCH4_frac = np.ones(nt) * fossilCH4_frac
+    # If custom gas lifetimes are supplied, use them, else import defaults
+    if type(lifetimes) is np.ndarray and len(lifetimes)!=ngas:
+      raise ValueError("custom GHG lifetime array must have " + str(ngas) + 
+        " elements")
+    else:
+      lifetimes = lifetime.aslist
   else:
     ngas = 1
     nF   = 1
@@ -96,18 +103,21 @@ def fair_scm(emissions=False,
         "Neither emissions or other_rf is defined as a timeseries")
 
   # Check natural emissions and convert to 2D array if necessary
-  if natural.ndim==1:
-    if natural.shape[0]!=2:
-      raise ValueError(
-        "natural emissions should be a 2-element or nt x 2 array")
-    natural = np.tile(natural, nt).reshape((nt,2))
-  elif natural.ndim==2:
-    if natural.shape[1]!=2 or natural.shape[0]!=nt:
-      raise ValueError(
-        "natural emissions should be a 2-element or nt x 2 array")
+  if type(natural) in [float,int]:
+    natural = natural * np.ones((nt,2))
+  elif type(natural) is np.ndarray:
+    if natural.ndim==1:
+      if natural.shape[0]!=2:
+        raise ValueError(
+          "natural emissions should be a 2-element or nt x 2 array")
+      natural = np.tile(natural, nt).reshape((nt,2))
+    elif natural.ndim==2:
+      if natural.shape[1]!=2 or natural.shape[0]!=nt:
+        raise ValueError(
+          "natural emissions should be a 2-element or nt x 2 array")
   else:
     raise ValueError(
-      "natural emissions should be a 2-element or nt x 2 array")
+      "natural emissions should be a scalar, 2-element, or nt x 2 array")
 
   F = np.zeros((nt, nF))
   C_acc = np.zeros(nt)
@@ -209,7 +219,7 @@ def fair_scm(emissions=False,
       # 1. Concentrations
       # a. CARBON DIOXIDE
       # Firstly add any oxidised methane from last year to the CO2 pool
-      oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetime.CH4)) * (
+      oxidised_CH4 = (C[t-1,1]-C_0[1]) * (1.0 - np.exp(-1.0/lifetimes[1])) * (
         molwt.C/molwt.CH4 * 0.001 * oxCH4_frac * fossilCH4_frac[t])
       oxidised_CH4 = np.max((oxidised_CH4, 0))
 
@@ -224,16 +234,16 @@ def fair_scm(emissions=False,
         C[t,0] - C[t-1,0])*ppm_gtc
 
       # b. METHANE
-      C[t,1] = C[t-1,1] - C[t-1,1]*(1.0 - np.exp(-1.0/lifetime.CH4)) + (
+      C[t,1] = C[t-1,1] - C[t-1,1]*(1.0 - np.exp(-1.0/lifetimes[1])) + (
         natural[t,0] + 0.5*(emissions[t,3] + emissions[t-1,3])) / emis2conc[1]
 
       # c. NITROUS OXIDE
-      C[t,2] = C[t-1,2] - C[t-1,2]*(1.0 - np.exp(-1.0/lifetime.N2O)) + (
+      C[t,2] = C[t-1,2] - C[t-1,2]*(1.0 - np.exp(-1.0/lifetimes[2])) + (
         natural[t,1] + 0.5*(emissions[t,4] + emissions[t-1,4])) / emis2conc[2]
 
       # d. OTHER WMGHGs
       C[t,3:] = C[t-1,3:] - C[t-1,3:]*(1.0 - np.exp(-1.0/np.array(
-        lifetime.aslist[3:]))) + (0.5 * (
+        lifetimes[3:]))) + (0.5 * (
         emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
 
       # 2. Radiative forcing
