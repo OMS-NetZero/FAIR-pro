@@ -149,7 +149,6 @@ def fair_scm(emissions=False,
 
   if useMultigas:
     C[0,1:] = C_0[1:]
-    print C_0
 
     # CO2, CH4 and methane are co-dependent and from Etminan relationship
     F[0,0:3] = etminan(C[0,0:3], C_pi[0:3], F2x=F2x)
