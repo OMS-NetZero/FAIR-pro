@@ -206,7 +206,6 @@ def fair_scm(emissions=False,
     else:
       F[0,0] = (F2x/np.log(2.)) * np.log(
         (C[0,0] + C_pi[0]) / C_pi[0]) + other_rf[0]
-    print F[0,0]-other_rf[0]
 
   if restart_in == False:
     # Update the thermal response boxes
