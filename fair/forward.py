@@ -3,7 +3,6 @@ import numpy as np
 from scipy.optimize import root
 from constants import molwt, lifetime, radeff
 from constants.general import M_ATMOS
-from forcing.ghg import etminan
 from forcing import ozone_tr, ozone_st, h2o_st, contrails, aerosols, bc_snow,\
                     landuse
 
@@ -39,7 +38,8 @@ def fair_scm(emissions=False,
              efficacy=np.array([1.]*13),
              scale=np.array([1.]*13),
              oxCH4_frac=0.61,
-             lifetimes=False):
+             lifetimes=False,
+             ghg_forcing="Etminan"):
 
   # Conversion between ppm CO2 and GtC emissions
   ppm_gtc   = M_ATMOS/1e18*molwt.C/molwt.AIR
@@ -87,6 +87,14 @@ def fair_scm(emissions=False,
         " elements")
     else:
       lifetimes = lifetime.aslist
+    # Select the desired GHG forcing relationship
+    if ghg_forcing.lower()=="etminan":
+      from forcing.ghg import etminan as ghg
+    elif ghg_forcing.lower()=="myhre":
+      from forcing.ghg import myhre as ghg
+    else:
+      raise ValueError("ghg_forcing should be 'etminan' (default) or 'myhre'")
+      
   else:
     ngas = 1
     nF   = 1
@@ -150,8 +158,8 @@ def fair_scm(emissions=False,
   if useMultigas:
     C[0,1:] = C_0[1:]
 
-    # CO2, CH4 and methane are co-dependent and from Etminan relationship
-    F[0,0:3] = etminan(C[0,0:3], C_pi[0:3], F2x=F2x)
+    # CO2, CH4 and methane are co-dependent
+    F[0,0:3] = ghg(C[0,0:3], C_pi[0:3], F2x=F2x)
 
     # Minor (F- and H-gases) are linear in concentration
     # the factor of 0.001 here is because radiative efficiencies are given
@@ -251,7 +259,7 @@ def fair_scm(emissions=False,
         emissions[t,12:] + emissions[t-1,12:])) / emis2conc[3:]
 
       # 2. Radiative forcing
-      F[t,0:3] = etminan(C[t,0:3], C_pi[0:3], F2x=F2x)
+      F[t,0:3] = ghg(C[t,0:3], C_pi[0:3], F2x=F2x)
       F[t,3] = np.sum((C[t,3:] - C_pi[3:]) * radeff.aslist[3:] * 0.001)
       F[t,5] = ozone_st.magicc(C[t,15:], C_pi[15:])
       F[t,6] = h2o_st.linear(F[t,1])
@@ -287,6 +295,7 @@ def fair_scm(emissions=False,
 
   # add delta CO2 concentrations to initial value
   C[:,0] = C[:,0] + C_0[0]
+
 
   if restart_out:
     restart_out_val=(R_i[-1],T_j[-1],C_acc[-1],C[-1,:])

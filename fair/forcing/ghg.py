@@ -33,3 +33,37 @@ def etminan(C, Cpi, F2x=3.74):
     (np.sqrt(C[2]) - np.sqrt(Cpi[2]))
 
   return F
+
+
+def MN(M, N):
+  return 0.47 * np.log(1 + 2.01e-5*(M*N)**(0.75) + 5.31e-15*M*(M*N)**(1.52))
+
+
+def myhre(C, Cpi, F2x=3.74):
+  """Calculate the radiative forcing from CO2, CH4 and N2O.
+
+  This uses the Myhre et al. (1998) relationships including the band
+  overlaps between CH4 and N2O. It is also used in AR5.
+
+  Reference: Myhre et al, 1998, JGR, doi: 10.1029/98GL01908
+
+  Inputs:
+    C: [CO2, CH4, N2O] concentrations, [ppm, ppb, ppb]
+    Cpi: pre-industrial [CO2, CH4, N2O] concentrations
+
+  Keywords:
+    F2x: radiative forcing from a doubling of CO2.
+
+  Returns:
+    3-element array of radiative forcing: [F_CO2, F_CH4, F_N2O]
+  """
+
+  F = np.zeros(3)
+
+  F[0] = F2x/np.log(2) * np.log(1.0 + C[0]/Cpi[0])
+  F[1] = 0.036 * (np.sqrt(C[1]) - np.sqrt(Cpi[1])) - (
+    MN(C[1],Cpi[2]) - MN(Cpi[1],Cpi[2]))
+  F[2] = 0.12 * (np.sqrt(C[2]) - np.sqrt(Cpi[2])) - (
+    MN(Cpi[1],C[2]) - MN(Cpi[1],Cpi[2])) 
+
+  return F
