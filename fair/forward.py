@@ -195,6 +195,10 @@ def fair_scm(emissions=False,
     # Volcanic and solar copied straight to the output arrays
     F[:,11] = F_volcanic
     F[:,12] = F_solar
+
+    # multiply by scale factors: note does not apply for CO2, scale CO with F2x
+    F[0,1:] = F[0,1:] * scale[1:]
+
   else:
     if np.isscalar(other_rf):
       F[0,0] = (F2x/np.log(2.)) * np.log(
@@ -202,6 +206,7 @@ def fair_scm(emissions=False,
     else:
       F[0,0] = (F2x/np.log(2.)) * np.log(
         (C[0,0] + C_pi[0]) / C_pi[0]) + other_rf[0]
+    print F[0,0]-other_rf[0]
 
   if restart_in == False:
     # Update the thermal response boxes
@@ -265,7 +270,7 @@ def fair_scm(emissions=False,
       F[t,6] = h2o_st.linear(F[t,1])
 
       # multiply by scale factors
-      F[t,:] = F[t,:] * scale
+      F[t,1:] = F[t,1:] * scale[1:]
 
       # 3. Temperature
       # Update the thermal response boxes
