@@ -142,8 +142,6 @@ def fair_scm(emissions=False,
     R_i[0]=restart_in[0]
     T_j[0]=restart_in[1]
     C_acc[0] = restart_in[2]
-    if useMultigas:
-      C_0[1:] = restart_in[3][1:]
   else:
     # Initialise the carbon pools to be correct for first timestep in
     # numerical method
@@ -302,7 +300,7 @@ def fair_scm(emissions=False,
 
 
   if restart_out:
-    restart_out_val=(R_i[-1],T_j[-1],C_acc[-1],C[-1,:])
+    restart_out_val=(R_i[-1],T_j[-1],C_acc[-1])
     return C, F, T, restart_out_val
   else:
     if not useMultigas:
